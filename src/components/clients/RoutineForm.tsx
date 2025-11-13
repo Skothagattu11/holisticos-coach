@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,15 +6,18 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { RoutineBlock } from "@/types";
 
 interface RoutineFormProps {
   clientId: string;
+  editingRoutine?: RoutineBlock | null;
   onAdd: (routine: Omit<RoutineBlock, "id">) => void;
+  onUpdate: (routine: RoutineBlock) => void;
+  onCancel?: () => void;
 }
 
-export const RoutineForm = ({ clientId, onAdd }: RoutineFormProps) => {
+export const RoutineForm = ({ clientId, editingRoutine, onAdd, onUpdate, onCancel }: RoutineFormProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState({
     type: "workout" as RoutineBlock["type"],
@@ -24,7 +27,24 @@ export const RoutineForm = ({ clientId, onAdd }: RoutineFormProps) => {
     effort: "medium" as RoutineBlock["effort"],
     location: "",
     purpose: "",
+    status: "scheduled" as RoutineBlock["status"],
   });
+
+  useEffect(() => {
+    if (editingRoutine) {
+      setFormData({
+        type: editingRoutine.type,
+        title: editingRoutine.title,
+        start: editingRoutine.start,
+        end: editingRoutine.end,
+        effort: editingRoutine.effort,
+        location: editingRoutine.location || "",
+        purpose: editingRoutine.notes || "",
+        status: editingRoutine.status,
+      });
+      setIsOpen(true);
+    }
+  }, [editingRoutine]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,20 +54,39 @@ export const RoutineForm = ({ clientId, onAdd }: RoutineFormProps) => {
       return;
     }
 
-    onAdd({
-      clientId,
-      type: formData.type,
-      title: formData.title,
-      start: formData.start,
-      end: formData.end,
-      effort: formData.effort,
-      location: formData.location,
-      status: "scheduled",
-      origin: "manual",
-      notes: formData.purpose,
-    });
+    if (editingRoutine) {
+      onUpdate({
+        ...editingRoutine,
+        type: formData.type,
+        title: formData.title,
+        start: formData.start,
+        end: formData.end,
+        effort: formData.effort,
+        location: formData.location,
+        notes: formData.purpose,
+        status: formData.status,
+      });
+      toast.success("Routine updated successfully");
+    } else {
+      onAdd({
+        clientId,
+        type: formData.type,
+        title: formData.title,
+        start: formData.start,
+        end: formData.end,
+        effort: formData.effort,
+        location: formData.location,
+        status: formData.status,
+        origin: "manual",
+        notes: formData.purpose,
+      });
+      toast.success("Routine added successfully");
+    }
 
-    toast.success("Routine added successfully");
+    resetForm();
+  };
+
+  const resetForm = () => {
     setFormData({
       type: "workout",
       title: "",
@@ -56,14 +95,16 @@ export const RoutineForm = ({ clientId, onAdd }: RoutineFormProps) => {
       effort: "medium",
       location: "",
       purpose: "",
+      status: "scheduled",
     });
     setIsOpen(false);
+    onCancel?.();
   };
 
-  if (!isOpen) {
+  if (!isOpen && !editingRoutine) {
     return (
       <Button onClick={() => setIsOpen(true)} className="w-full">
-        <Plus className="h-4 w-4" />
+        <Plus className="h-4 w-4 mr-2" />
         Add New Routine
       </Button>
     );
@@ -72,7 +113,12 @@ export const RoutineForm = ({ clientId, onAdd }: RoutineFormProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create New Routine</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>{editingRoutine ? "Edit Routine" : "Create New Routine"}</CardTitle>
+          <Button variant="ghost" size="icon" onClick={resetForm}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -114,7 +160,7 @@ export const RoutineForm = ({ clientId, onAdd }: RoutineFormProps) => {
               id="title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="e.g., Morning Run, Team Meeting"
+              placeholder="e.g., Morning HIIT Workout"
               required
             />
           </div>
@@ -144,29 +190,48 @@ export const RoutineForm = ({ clientId, onAdd }: RoutineFormProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="location">Location (optional)</Label>
+            <Label htmlFor="location">Location (Optional)</Label>
             <Input
               id="location"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              placeholder="e.g., Gym, Home, Office"
+              placeholder="e.g., Home Gym, Office"
             />
           </div>
 
+          {editingRoutine && (
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select value={formData.status} onValueChange={(value: RoutineBlock["status"]) => setFormData({ ...formData, status: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="skipped">Skipped</SelectItem>
+                  <SelectItem value="modified">Modified</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="space-y-2">
-            <Label htmlFor="purpose">Purpose & Comments</Label>
+            <Label htmlFor="purpose">Purpose / Notes (Optional)</Label>
             <Textarea
               id="purpose"
               value={formData.purpose}
               onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-              placeholder="Describe the purpose of this routine and any special instructions..."
-              rows={4}
+              placeholder="Add any notes or purpose for this routine..."
+              rows={3}
             />
           </div>
 
           <div className="flex gap-2">
-            <Button type="submit">Add Routine</Button>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+            <Button type="submit" className="flex-1">
+              {editingRoutine ? "Update Routine" : "Create Routine"}
+            </Button>
+            <Button type="button" variant="outline" onClick={resetForm}>
               Cancel
             </Button>
           </div>

@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { mockClients, generateMetricsHistory, mockFeedback, mockCheckIns, mockActivityMetrics } from "@/lib/mock-data";
+import { mockClients, generateMetricsHistory, mockFeedback, mockCheckIns, mockActivityMetrics, mockRoutines } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +8,10 @@ import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { cn } from "@/lib/utils";
 import { RoutineForm } from "@/components/clients/RoutineForm";
+import { RoutineCard } from "@/components/clients/RoutineCard";
 import { CheckInList } from "@/components/clients/CheckInList";
 import { ActivityMetrics } from "@/components/clients/ActivityMetrics";
+import { DateNavigator } from "@/components/clients/DateNavigator";
 import { useState } from "react";
 import { RoutineBlock } from "@/types";
 import { toast } from "sonner";
@@ -24,7 +26,9 @@ const ClientDetail = () => {
   const clientCheckIns = mockCheckIns.filter(ci => ci.clientId === clientId);
   const clientActivity = mockActivityMetrics;
 
-  const [routines, setRoutines] = useState<RoutineBlock[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [routines, setRoutines] = useState<RoutineBlock[]>(mockRoutines.filter(r => r.clientId === clientId));
+  const [editingRoutine, setEditingRoutine] = useState<RoutineBlock | null>(null);
 
   const handleAddRoutine = (routine: Omit<RoutineBlock, "id">) => {
     const newRoutine: RoutineBlock = {
@@ -32,6 +36,17 @@ const ClientDetail = () => {
       id: `r${Date.now()}`,
     };
     setRoutines([...routines, newRoutine]);
+  };
+
+  const handleUpdateRoutine = (updatedRoutine: RoutineBlock) => {
+    setRoutines(routines.map(r => r.id === updatedRoutine.id ? updatedRoutine : r));
+    setEditingRoutine(null);
+    toast.success("Routine updated successfully");
+  };
+
+  const handleDeleteRoutine = (id: string) => {
+    setRoutines(routines.filter(r => r.id !== id));
+    toast.success("Routine deleted successfully");
   };
 
   const handleCheckInMessage = (checkInId: string, message: string) => {
@@ -131,14 +146,17 @@ const ClientDetail = () => {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="metrics">Metrics</TabsTrigger>
-          <TabsTrigger value="routine">Routine</TabsTrigger>
-          <TabsTrigger value="checkin">Check-ins</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="feedback">Feedback History</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="metrics">Metrics</TabsTrigger>
+            <TabsTrigger value="routine">Routine</TabsTrigger>
+            <TabsTrigger value="checkin">Check-ins</TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
+            <TabsTrigger value="feedback">Feedback History</TabsTrigger>
+          </TabsList>
+          <DateNavigator date={selectedDate} onDateChange={setSelectedDate} />
+        </div>
 
         <TabsContent value="overview" className="space-y-4">
           <Card>
@@ -355,46 +373,40 @@ const ClientDetail = () => {
         </TabsContent>
 
         <TabsContent value="routine" className="space-y-4">
-          <RoutineForm clientId={clientId || ""} onAdd={handleAddRoutine} />
+          <RoutineForm 
+            clientId={clientId || ""} 
+            editingRoutine={editingRoutine}
+            onAdd={handleAddRoutine}
+            onUpdate={handleUpdateRoutine}
+            onCancel={() => setEditingRoutine(null)}
+          />
           
           {routines.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Created Routines</CardTitle>
+                <CardTitle>Routines for {selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {routines.map((routine) => (
-                    <div key={routine.id} className="border rounded-lg p-4 space-y-2">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="font-semibold">{routine.title}</h4>
-                          <div className="text-sm text-muted-foreground">
-                            {new Date(routine.start).toLocaleString()} - {new Date(routine.end).toLocaleTimeString()}
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Badge variant="outline" className="capitalize">{routine.type}</Badge>
-                          <Badge variant={
-                            routine.effort === "high" ? "destructive" : 
-                            routine.effort === "medium" ? "default" : 
-                            "secondary"
-                          }>
-                            {routine.effort} effort
-                          </Badge>
-                        </div>
-                      </div>
-                      {routine.location && (
-                        <p className="text-sm text-muted-foreground">📍 {routine.location}</p>
-                      )}
-                      {routine.notes && (
-                        <div className="text-sm bg-muted/50 p-3 rounded">
-                          <div className="font-medium mb-1">Purpose:</div>
-                          {routine.notes}
-                        </div>
-                      )}
+                  {routines
+                    .filter(routine => {
+                      const routineDate = new Date(routine.start);
+                      return routineDate.toDateString() === selectedDate.toDateString();
+                    })
+                    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+                    .map((routine) => (
+                      <RoutineCard
+                        key={routine.id}
+                        routine={routine}
+                        onEdit={setEditingRoutine}
+                        onDelete={handleDeleteRoutine}
+                      />
+                    ))}
+                  {routines.filter(r => new Date(r.start).toDateString() === selectedDate.toDateString()).length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No routines scheduled for this date
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>
