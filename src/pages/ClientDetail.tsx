@@ -34,8 +34,8 @@ const ClientDetail = () => {
     setRoutines([...routines, newRoutine]);
   };
 
-  const handleCheckInReply = (checkInId: string, response: string) => {
-    toast.success("Response sent to client");
+  const handleCheckInMessage = (checkInId: string, message: string) => {
+    toast.success("Message sent to client");
   };
 
   if (!client) {
@@ -206,6 +206,152 @@ const ClientDetail = () => {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">Sleep Quality</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Average Duration</span>
+                  <span className="font-semibold">{client.sleep7dAvg.toFixed(1)}h</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Sleep Efficiency</span>
+                  <span className="font-semibold">87%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Deep Sleep</span>
+                  <span className="font-semibold">1.8h</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">REM Sleep</span>
+                  <span className="font-semibold">1.5h</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">Heart Rate Variability</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">7-Day Average</span>
+                  <span className="font-semibold">{client.hrv7dAvg} ms</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Baseline</span>
+                  <span className="font-semibold">{client.hrv7dAvg - 4} ms</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Trend</span>
+                  <span className="font-semibold text-success">↑ Improving</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Recovery Status</span>
+                  <Badge variant="secondary" className="text-xs">Good</Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">Resting Heart Rate</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">7-Day Average</span>
+                  <span className="font-semibold">{client.rhr7dAvg} bpm</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Baseline</span>
+                  <span className="font-semibold">{client.rhr7dAvg - 2} bpm</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Min (7d)</span>
+                  <span className="font-semibold">{client.rhr7dAvg - 3} bpm</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Max (7d)</span>
+                  <span className="font-semibold">{client.rhr7dAvg + 4} bpm</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">Activity & Steps</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Daily Average</span>
+                  <span className="font-semibold">8,450 steps</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Target</span>
+                  <span className="font-semibold">10,000 steps</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Active Minutes</span>
+                  <span className="font-semibold">45 min/day</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Calories Burned</span>
+                  <span className="font-semibold">2,340 kcal</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">Training Load</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Weekly Load</span>
+                  <span className="font-semibold">285</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Load Status</span>
+                  <Badge variant="secondary" className="text-xs">Optimal</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Strain</span>
+                  <span className="font-semibold">13.2</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">vs Last Week</span>
+                  <span className="font-semibold text-success">+8%</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium">Stress & Recovery</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Stress Level</span>
+                  <span className="font-semibold">Medium</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Recovery Score</span>
+                  <span className="font-semibold">78%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Readiness</span>
+                  <Badge className="text-xs bg-success/10 text-success">High</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Respiratory Rate</span>
+                  <span className="font-semibold">14.5 brpm</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="routine" className="space-y-4">
@@ -256,7 +402,7 @@ const ClientDetail = () => {
         </TabsContent>
 
         <TabsContent value="checkin" className="space-y-4">
-          <CheckInList checkIns={clientCheckIns} onReply={handleCheckInReply} />
+          <CheckInList checkIns={clientCheckIns} onSendMessage={handleCheckInMessage} />
         </TabsContent>
 
         <TabsContent value="activity" className="space-y-4">
