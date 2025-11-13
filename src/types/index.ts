@@ -64,6 +64,7 @@ export interface RoutineBlock {
   location?: string;
   status: "scheduled" | "completed" | "skipped" | "modified";
   origin: "template" | "rule" | "manual";
+  notes?: string;
 }
 
 export interface Feedback {
@@ -80,6 +81,29 @@ export interface Feedback {
   status: "new" | "triaged" | "applied" | "rejected";
   appliedRuleId?: string;
   createdAt: string;
+}
+
+export interface CheckIn {
+  id: string;
+  clientId: string;
+  date: string;
+  type: "daily" | "weekly";
+  weight?: number;
+  progressNotes: string;
+  mood?: number;
+  energy?: number;
+  coachResponse?: string;
+  coachRespondedAt?: string;
+}
+
+export interface ActivityMetric {
+  taskId: string;
+  taskName: string;
+  completionCount: number;
+  currentStreak: number;
+  longestStreak: number;
+  lastCompletedAt: string;
+  completionRate: number;
 }
 
 export interface DashboardWidget {
