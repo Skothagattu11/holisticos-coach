@@ -83,17 +83,27 @@ export interface Feedback {
   createdAt: string;
 }
 
+export interface CheckInMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderRole: "client" | "coach";
+  message: string;
+  timestamp: string;
+  read: boolean;
+}
+
 export interface CheckIn {
   id: string;
   clientId: string;
   date: string;
   type: "daily" | "weekly";
   weight?: number;
-  progressNotes: string;
   mood?: number;
   energy?: number;
-  coachResponse?: string;
-  coachRespondedAt?: string;
+  progressNotes: string;
+  messages: CheckInMessage[];
+  hasUnreadMessages: boolean;
 }
 
 export interface ActivityMetric {
