@@ -9,6 +9,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { cn } from "@/lib/utils";
 import { RoutineForm } from "@/components/clients/RoutineForm";
 import { RoutineCard } from "@/components/clients/RoutineCard";
+import { RoutineCalendar } from "@/components/clients/RoutineCalendar";
 import { CheckInList } from "@/components/clients/CheckInList";
 import { ActivityMetrics } from "@/components/clients/ActivityMetrics";
 import { DateNavigator } from "@/components/clients/DateNavigator";
@@ -373,44 +374,93 @@ const ClientDetail = () => {
         </TabsContent>
 
         <TabsContent value="routine" className="space-y-4">
-          <RoutineForm 
-            clientId={clientId || ""} 
-            editingRoutine={editingRoutine}
-            onAdd={handleAddRoutine}
-            onUpdate={handleUpdateRoutine}
-            onCancel={() => setEditingRoutine(null)}
-          />
-          
-          {routines.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Routines for {selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {routines
-                    .filter(routine => {
-                      const routineDate = new Date(routine.start);
-                      return routineDate.toDateString() === selectedDate.toDateString();
-                    })
-                    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-                    .map((routine) => (
-                      <RoutineCard
-                        key={routine.id}
-                        routine={routine}
-                        onEdit={setEditingRoutine}
-                        onDelete={handleDeleteRoutine}
-                      />
-                    ))}
-                  {routines.filter(r => new Date(r.start).toDateString() === selectedDate.toDateString()).length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No routines scheduled for this date
+          <Tabs defaultValue="today" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="today">Today's Routine</TabsTrigger>
+              <TabsTrigger value="calendar">Calendar View</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="today" className="space-y-4">
+              <RoutineForm 
+                clientId={clientId || ""} 
+                editingRoutine={editingRoutine}
+                onAdd={handleAddRoutine}
+                onUpdate={handleUpdateRoutine}
+                onCancel={() => setEditingRoutine(null)}
+              />
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    Routines for {new Date().toLocaleDateString('en-US', { 
+                      weekday: 'long',
+                      month: 'long', 
+                      day: 'numeric', 
+                      year: 'numeric' 
+                    })}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {routines
+                      .filter(routine => {
+                        const routineDate = new Date(routine.start);
+                        const today = new Date();
+                        return routineDate.toDateString() === today.toDateString();
+                      })
+                      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+                      .map((routine) => (
+                        <RoutineCard
+                          key={routine.id}
+                          routine={routine}
+                          onEdit={setEditingRoutine}
+                          onDelete={handleDeleteRoutine}
+                        />
+                      ))}
+                    {routines.filter(r => new Date(r.start).toDateString() === new Date().toDateString()).length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No routines scheduled for today
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="calendar" className="space-y-4">
+              <RoutineCalendar 
+                routines={routines}
+                selectedDate={selectedDate}
+                onDateSelect={setSelectedDate}
+              />
+
+              {routines.filter(r => new Date(r.start).toDateString() === selectedDate.toDateString()).length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Manage Routines</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {routines
+                        .filter(routine => {
+                          const routineDate = new Date(routine.start);
+                          return routineDate.toDateString() === selectedDate.toDateString();
+                        })
+                        .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+                        .map((routine) => (
+                          <RoutineCard
+                            key={routine.id}
+                            routine={routine}
+                            onEdit={setEditingRoutine}
+                            onDelete={handleDeleteRoutine}
+                          />
+                        ))}
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="checkin" className="space-y-4">
