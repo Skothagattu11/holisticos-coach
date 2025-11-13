@@ -5,9 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { PlanNutritionItem } from "@/types";
-import { Plus, Trash2, Edit2, Check, X } from "lucide-react";
+import { PlanNutritionItem, Client } from "@/types";
+import { Plus, Trash2, Edit2, Check, X, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { mockClients } from "@/lib/mock-data";
+import { toast } from "sonner";
 
 interface PlanNutritionSectionProps {
   items: PlanNutritionItem[];
@@ -17,6 +19,7 @@ interface PlanNutritionSectionProps {
 export const PlanNutritionSection = ({ items, onChange }: PlanNutritionSectionProps) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<PlanNutritionItem>>({});
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
 
   const startEdit = (item: PlanNutritionItem) => {
     setEditingId(item.id);
@@ -53,11 +56,50 @@ export const PlanNutritionSection = ({ items, onChange }: PlanNutritionSectionPr
     onChange(items.filter(item => item.id !== id));
   };
 
+  const generateNutrition = () => {
+    if (!selectedClientId) {
+      toast.error("Please select a client first");
+      return;
+    }
+
+    const generatedItems: PlanNutritionItem[] = [
+      { id: `n-${Date.now()}-1`, mealType: "breakfast", name: "Oatmeal with berries", calories: 450, protein: 15, carbs: 65, fats: 12 },
+      { id: `n-${Date.now()}-2`, mealType: "lunch", name: "Grilled chicken salad", calories: 550, protein: 45, carbs: 40, fats: 18 },
+      { id: `n-${Date.now()}-3`, mealType: "dinner", name: "Salmon with vegetables", calories: 600, protein: 50, carbs: 35, fats: 25 },
+      { id: `n-${Date.now()}-4`, mealType: "snack", name: "Protein shake", calories: 200, protein: 30, carbs: 10, fats: 5 },
+    ];
+
+    onChange([...items, ...generatedItems]);
+    toast.success("Nutrition plan generated successfully!");
+  };
+
   return (
     <div className="space-y-4">
+      <div className="flex items-end gap-4 pb-4 border-b">
+        <div className="flex-1">
+          <Label htmlFor="clientSelect">Select Client</Label>
+          <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+            <SelectTrigger id="clientSelect">
+              <SelectValue placeholder="Choose a client" />
+            </SelectTrigger>
+            <SelectContent>
+              {mockClients.map((client: Client) => (
+                <SelectItem key={client.id} value={client.id}>
+                  {client.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={generateNutrition} disabled={!selectedClientId} variant="default">
+          <Sparkles className="h-4 w-4 mr-2" />
+          Generate Nutrition
+        </Button>
+      </div>
+
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Nutrition Plan</h3>
-        <Button onClick={addNew} size="sm">
+        <Button onClick={addNew} size="sm" variant="outline">
           <Plus className="h-4 w-4 mr-2" />
           Add Meal
         </Button>
