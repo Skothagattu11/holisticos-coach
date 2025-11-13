@@ -124,3 +124,52 @@ export interface DashboardWidget {
   trend?: "up" | "down" | "neutral";
   subtitle?: string;
 }
+
+export interface PlanRoutineItem {
+  id: string;
+  type: "workout" | "meal" | "recovery" | "deep-work" | "habit";
+  title: string;
+  time: string;
+  duration: string;
+  notes?: string;
+}
+
+export interface PlanNutritionItem {
+  id: string;
+  mealType: "breakfast" | "lunch" | "dinner" | "snack";
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  notes?: string;
+}
+
+export interface PlanWorkoutItem {
+  id: string;
+  exercise: string;
+  sets: number;
+  reps: string;
+  rest: string;
+  notes?: string;
+}
+
+export interface PlanSupplementItem {
+  id: string;
+  name: string;
+  dosage: string;
+  timing: string;
+  notes?: string;
+}
+
+export interface Plan {
+  id: string;
+  name: string;
+  clientIds: string[];
+  routine: PlanRoutineItem[];
+  nutrition: PlanNutritionItem[];
+  workouts: PlanWorkoutItem[];
+  supplements: PlanSupplementItem[];
+  createdAt: string;
+  updatedAt: string;
+}
