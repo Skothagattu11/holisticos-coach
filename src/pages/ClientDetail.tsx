@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { mockClients, generateMetricsHistory, mockFeedback } from "@/lib/mock-data";
+import { mockClients, generateMetricsHistory, mockFeedback, mockCheckIns, mockActivityMetrics } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { cn } from "@/lib/utils";
+import { RoutineForm } from "@/components/clients/RoutineForm";
+import { CheckInList } from "@/components/clients/CheckInList";
+import { ActivityMetrics } from "@/components/clients/ActivityMetrics";
+import { useState } from "react";
+import { RoutineBlock } from "@/types";
+import { toast } from "sonner";
 
 const ClientDetail = () => {
   const { clientId } = useParams();
@@ -15,6 +21,22 @@ const ClientDetail = () => {
   const client = mockClients.find(c => c.id === clientId);
   const metrics = generateMetricsHistory(clientId || "c1", 30);
   const clientFeedback = mockFeedback.filter(f => f.targetId === clientId);
+  const clientCheckIns = mockCheckIns.filter(ci => ci.clientId === clientId);
+  const clientActivity = mockActivityMetrics;
+
+  const [routines, setRoutines] = useState<RoutineBlock[]>([]);
+
+  const handleAddRoutine = (routine: Omit<RoutineBlock, "id">) => {
+    const newRoutine: RoutineBlock = {
+      ...routine,
+      id: `r${Date.now()}`,
+    };
+    setRoutines([...routines, newRoutine]);
+  };
+
+  const handleCheckInReply = (checkInId: string, response: string) => {
+    toast.success("Response sent to client");
+  };
 
   if (!client) {
     return (
@@ -112,8 +134,10 @@ const ClientDetail = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="metrics">Metrics</TabsTrigger>
-          <TabsTrigger value="feedback">Feedback History</TabsTrigger>
           <TabsTrigger value="routine">Routine</TabsTrigger>
+          <TabsTrigger value="checkin">Check-ins</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="feedback">Feedback History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -184,6 +208,61 @@ const ClientDetail = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="routine" className="space-y-4">
+          <RoutineForm clientId={clientId || ""} onAdd={handleAddRoutine} />
+          
+          {routines.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Created Routines</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {routines.map((routine) => (
+                    <div key={routine.id} className="border rounded-lg p-4 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-semibold">{routine.title}</h4>
+                          <div className="text-sm text-muted-foreground">
+                            {new Date(routine.start).toLocaleString()} - {new Date(routine.end).toLocaleTimeString()}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Badge variant="outline" className="capitalize">{routine.type}</Badge>
+                          <Badge variant={
+                            routine.effort === "high" ? "destructive" : 
+                            routine.effort === "medium" ? "default" : 
+                            "secondary"
+                          }>
+                            {routine.effort} effort
+                          </Badge>
+                        </div>
+                      </div>
+                      {routine.location && (
+                        <p className="text-sm text-muted-foreground">📍 {routine.location}</p>
+                      )}
+                      {routine.notes && (
+                        <div className="text-sm bg-muted/50 p-3 rounded">
+                          <div className="font-medium mb-1">Purpose:</div>
+                          {routine.notes}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="checkin" className="space-y-4">
+          <CheckInList checkIns={clientCheckIns} onReply={handleCheckInReply} />
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-4">
+          <ActivityMetrics metrics={clientActivity} />
+        </TabsContent>
+
         <TabsContent value="feedback" className="space-y-4">
           {clientFeedback.length > 0 ? (
             clientFeedback.map((feedback) => (
@@ -224,14 +303,6 @@ const ClientDetail = () => {
               </CardContent>
             </Card>
           )}
-        </TabsContent>
-
-        <TabsContent value="routine">
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">Routine calendar and schedule coming soon</p>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </div>

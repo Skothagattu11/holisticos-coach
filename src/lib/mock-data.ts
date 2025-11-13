@@ -1,4 +1,4 @@
-import { Client, MetricsSnapshot, Feedback, Coach, DashboardWidget } from "@/types";
+import type { Client, Coach, MetricsSnapshot, Feedback, CheckIn, ActivityMetric, DashboardWidget } from "@/types";
 
 export const mockClients: Client[] = [
   {
@@ -213,6 +213,122 @@ export const mockFeedback: Feedback[] = [
     proposedFix: "Client to re-authenticate Garmin. Backfill sleep from manual check-in if available.",
     status: "applied",
     createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
+export const mockCheckIns: CheckIn[] = [
+  {
+    id: "ci1",
+    clientId: "c1",
+    date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    type: "daily",
+    weight: 72.5,
+    mood: 8,
+    energy: 7,
+    progressNotes: "Feeling strong today! Completed all workouts this week. Sleep has been great.",
+    coachResponse: "Excellent work, Sarah! Your consistency is paying off. Keep up the great sleep routine.",
+    coachRespondedAt: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "ci2",
+    clientId: "c1",
+    date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    type: "daily",
+    weight: 72.8,
+    mood: 7,
+    energy: 8,
+    progressNotes: "Good energy levels. Hit a new PR on my 5K run - 22:45!",
+    coachResponse: "That's a fantastic PR! Your training is clearly working. Let's maintain this momentum.",
+    coachRespondedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: "ci3",
+    clientId: "c1",
+    date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    type: "weekly",
+    weight: 73.2,
+    mood: 8,
+    energy: 7,
+    progressNotes: "Great week overall! All workouts completed. Nutrition has been on point. Feeling ready for next week's challenges.",
+  },
+  {
+    id: "ci4",
+    clientId: "c2",
+    date: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+    type: "daily",
+    weight: 89.1,
+    mood: 4,
+    energy: 3,
+    progressNotes: "Struggled with sleep again last night. Only got 5 hours. Feeling exhausted and stressed from work deadlines.",
+  },
+  {
+    id: "ci5",
+    clientId: "c2",
+    date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    type: "daily",
+    weight: 89.5,
+    mood: 5,
+    energy: 4,
+    progressNotes: "Tried the breathing exercises you recommended. Helped a bit with stress. Still having trouble winding down at night.",
+    coachResponse: "I'm glad the breathing exercises are helping. Let's adjust your evening routine - I'll send you a modified plan that includes more recovery time before bed.",
+    coachRespondedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
+export const mockActivityMetrics: ActivityMetric[] = [
+  {
+    taskId: "t1",
+    taskName: "Morning Workout",
+    completionCount: 42,
+    currentStreak: 7,
+    longestStreak: 14,
+    lastCompletedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    completionRate: 93,
+  },
+  {
+    taskId: "t2",
+    taskName: "Evening Meditation",
+    completionCount: 38,
+    currentStreak: 5,
+    longestStreak: 12,
+    lastCompletedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    completionRate: 84,
+  },
+  {
+    taskId: "t3",
+    taskName: "Meal Prep",
+    completionCount: 28,
+    currentStreak: 3,
+    longestStreak: 8,
+    lastCompletedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    completionRate: 78,
+  },
+  {
+    taskId: "t4",
+    taskName: "Hydration Tracking",
+    completionCount: 51,
+    currentStreak: 12,
+    longestStreak: 21,
+    lastCompletedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    completionRate: 97,
+  },
+  {
+    taskId: "t5",
+    taskName: "Sleep Routine",
+    completionCount: 34,
+    currentStreak: 4,
+    longestStreak: 10,
+    lastCompletedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    completionRate: 81,
+  },
+  {
+    taskId: "t6",
+    taskName: "Recovery Session",
+    completionCount: 19,
+    currentStreak: 0,
+    longestStreak: 6,
+    lastCompletedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+    completionRate: 68,
   },
 ];
 
