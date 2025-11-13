@@ -1,4 +1,4 @@
-import type { Client, Coach, MetricsSnapshot, Feedback, CheckIn, ActivityMetric, DashboardWidget } from "@/types";
+import type { Client, Coach, MetricsSnapshot, Feedback, CheckIn, ActivityMetric, DashboardWidget, RoutineBlock } from "@/types";
 
 export const mockClients: Client[] = [
   {
@@ -362,6 +362,84 @@ export const mockCheckIns: CheckIn[] = [
       },
     ],
     hasUnreadMessages: false,
+  },
+];
+
+export const mockRoutines: RoutineBlock[] = [
+  {
+    id: "r1",
+    clientId: "c1",
+    type: "workout",
+    title: "Morning HIIT Session",
+    start: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
+    end: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString(),
+    effort: "high",
+    location: "Home Gym",
+    status: "scheduled",
+    origin: "template",
+    notes: "High-intensity interval training to boost cardiovascular fitness. Focus on maintaining proper form.",
+  },
+  {
+    id: "r2",
+    clientId: "c1",
+    type: "meal",
+    title: "Protein-Rich Breakfast",
+    start: new Date(Date.now() + 9.5 * 60 * 60 * 1000).toISOString(),
+    end: new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString(),
+    effort: "low",
+    status: "completed",
+    origin: "manual",
+    notes: "Eggs, avocado toast, and Greek yogurt. Total protein: 35g",
+  },
+  {
+    id: "r3",
+    clientId: "c1",
+    type: "deep-work",
+    title: "Focus Work Block",
+    start: new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString(),
+    end: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+    effort: "medium",
+    location: "Office",
+    status: "scheduled",
+    origin: "template",
+    notes: "Uninterrupted work time for high-priority tasks. Phone on silent.",
+  },
+  {
+    id: "r4",
+    clientId: "c1",
+    type: "recovery",
+    title: "Stretching & Mobility",
+    start: new Date(Date.now() + 18 * 60 * 60 * 1000).toISOString(),
+    end: new Date(Date.now() + 18.5 * 60 * 60 * 1000).toISOString(),
+    effort: "low",
+    location: "Home",
+    status: "scheduled",
+    origin: "rule",
+    notes: "Focus on hip flexors and shoulders. Use foam roller for 10 minutes.",
+  },
+  {
+    id: "r5",
+    clientId: "c1",
+    type: "habit",
+    title: "Evening Wind-Down Routine",
+    start: new Date(Date.now() + 21 * 60 * 60 * 1000).toISOString(),
+    end: new Date(Date.now() + 21.5 * 60 * 60 * 1000).toISOString(),
+    effort: "low",
+    status: "scheduled",
+    origin: "template",
+    notes: "Read for 20 minutes, no screens. Prepare tomorrow's gym bag.",
+  },
+  {
+    id: "r6",
+    clientId: "c2",
+    type: "recovery",
+    title: "Breathing Exercises",
+    start: new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString(),
+    end: new Date(Date.now() + 7.25 * 60 * 60 * 1000).toISOString(),
+    effort: "low",
+    status: "scheduled",
+    origin: "manual",
+    notes: "Box breathing: 4-4-4-4 pattern for stress reduction.",
   },
 ];
 
