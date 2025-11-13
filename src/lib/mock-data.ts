@@ -170,6 +170,8 @@ export const mockFeedback: Feedback[] = [
     proposedFix: "Lower next 2 workouts to 'low' effort. Insert 20min recovery session. Trigger sleep hygiene nudge.",
     status: "new",
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    comments: [],
   },
   {
     id: "f2",
@@ -184,6 +186,18 @@ export const mockFeedback: Feedback[] = [
     proposedFix: "Swap HIIT to evening slot. Replace morning with 15min mobility flow (low effort).",
     status: "triaged",
     createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+    comments: [
+      {
+        id: "tc1",
+        ticketId: "f2",
+        authorId: "coach2",
+        authorName: "Jamie Foster",
+        authorRole: "coach",
+        content: "I've reviewed this with the client. They confirmed morning energy is consistently low.",
+        createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+      },
+    ],
   },
   {
     id: "f3",
@@ -199,6 +213,27 @@ export const mockFeedback: Feedback[] = [
     status: "applied",
     appliedRuleId: "r42",
     createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    comments: [
+      {
+        id: "tc2",
+        ticketId: "f3",
+        authorId: "coach1",
+        authorName: "Dr. Alex Rivera",
+        authorRole: "coach",
+        content: "Applied the fix. Moving meal prep to 11:30 AM on M/W/F.",
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: "tc3",
+        ticketId: "f3",
+        authorId: "c5",
+        authorName: "Priya Sharma",
+        authorRole: "client",
+        content: "This works much better with my schedule. Thank you!",
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ],
   },
   {
     id: "f4",
@@ -213,6 +248,18 @@ export const mockFeedback: Feedback[] = [
     proposedFix: "Client to re-authenticate Garmin. Backfill sleep from manual check-in if available.",
     status: "applied",
     createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+    comments: [
+      {
+        id: "tc4",
+        ticketId: "f4",
+        authorId: "c3",
+        authorName: "Emily Torres",
+        authorRole: "client",
+        content: "I re-authenticated my Garmin and the data is now syncing properly.",
+        createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ],
   },
 ];
 

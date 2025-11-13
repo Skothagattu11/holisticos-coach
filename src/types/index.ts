@@ -67,6 +67,16 @@ export interface RoutineBlock {
   notes?: string;
 }
 
+export interface TicketComment {
+  id: string;
+  ticketId: string;
+  authorId: string;
+  authorName: string;
+  authorRole: "coach" | "client" | "admin";
+  content: string;
+  createdAt: string;
+}
+
 export interface Feedback {
   id: string;
   authorId: string;
@@ -81,6 +91,8 @@ export interface Feedback {
   status: "new" | "triaged" | "applied" | "rejected";
   appliedRuleId?: string;
   createdAt: string;
+  comments: TicketComment[];
+  updatedAt: string;
 }
 
 export interface CheckInMessage {
