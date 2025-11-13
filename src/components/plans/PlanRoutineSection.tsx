@@ -5,9 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { PlanRoutineItem } from "@/types";
-import { Plus, Trash2, Edit2, Check, X } from "lucide-react";
+import { PlanRoutineItem, Client } from "@/types";
+import { Plus, Trash2, Edit2, Check, X, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { mockClients } from "@/lib/mock-data";
+import { toast } from "sonner";
 
 interface PlanRoutineSectionProps {
   items: PlanRoutineItem[];
@@ -17,6 +19,7 @@ interface PlanRoutineSectionProps {
 export const PlanRoutineSection = ({ items, onChange }: PlanRoutineSectionProps) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<PlanRoutineItem>>({});
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
 
   const startEdit = (item: PlanRoutineItem) => {
     setEditingId(item.id);
@@ -51,6 +54,24 @@ export const PlanRoutineSection = ({ items, onChange }: PlanRoutineSectionProps)
     onChange(items.filter(item => item.id !== id));
   };
 
+  const generateRoutine = () => {
+    if (!selectedClientId) {
+      toast.error("Please select a client first");
+      return;
+    }
+
+    const generatedItems: PlanRoutineItem[] = [
+      { id: `r-${Date.now()}-1`, type: "workout", title: "Morning Workout", time: "07:00", duration: "60min", notes: "High intensity" },
+      { id: `r-${Date.now()}-2`, type: "meal", title: "Breakfast", time: "08:30", duration: "30min" },
+      { id: `r-${Date.now()}-3`, type: "deep-work", title: "Focus Session", time: "10:00", duration: "90min" },
+      { id: `r-${Date.now()}-4`, type: "meal", title: "Lunch", time: "13:00", duration: "45min" },
+      { id: `r-${Date.now()}-5`, type: "recovery", title: "Stretching", time: "18:00", duration: "30min" },
+    ];
+
+    onChange([...items, ...generatedItems]);
+    toast.success("Routine generated successfully!");
+  };
+
   const typeColors = {
     workout: "bg-chart-1",
     meal: "bg-chart-3",
@@ -61,9 +82,31 @@ export const PlanRoutineSection = ({ items, onChange }: PlanRoutineSectionProps)
 
   return (
     <div className="space-y-4">
+      <div className="flex items-end gap-4 pb-4 border-b">
+        <div className="flex-1">
+          <Label htmlFor="clientSelect">Select Client</Label>
+          <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+            <SelectTrigger id="clientSelect">
+              <SelectValue placeholder="Choose a client" />
+            </SelectTrigger>
+            <SelectContent>
+              {mockClients.map((client: Client) => (
+                <SelectItem key={client.id} value={client.id}>
+                  {client.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={generateRoutine} disabled={!selectedClientId} variant="default">
+          <Sparkles className="h-4 w-4 mr-2" />
+          Generate Routine
+        </Button>
+      </div>
+
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Daily Routine</h3>
-        <Button onClick={addNew} size="sm">
+        <Button onClick={addNew} size="sm" variant="outline">
           <Plus className="h-4 w-4 mr-2" />
           Add Item
         </Button>
