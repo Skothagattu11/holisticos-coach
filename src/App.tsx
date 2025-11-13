@@ -10,6 +10,8 @@ import Clients from "./pages/Clients";
 import ClientDetail from "./pages/ClientDetail";
 import Feedback from "./pages/Feedback";
 import Plans from "./pages/Plans";
+import Coaches from "./pages/Coaches";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { UserRole } from "@/types";
 
@@ -30,11 +32,10 @@ const App = () => {
               <Route path="/clients" element={<Clients />} />
               <Route path="/clients/:clientId" element={<ClientDetail />} />
               <Route path="/feedback" element={<Feedback />} />
-              <Route path="/coaches" element={<div className="text-center py-12"><h2 className="text-2xl font-semibold">Coaches page coming soon</h2></div>} />
+              <Route path="/coaches" element={<Coaches />} />
               <Route path="/plans" element={<Plans />} />
-              <Route path="/insights" element={<div className="text-center py-12"><h2 className="text-2xl font-semibold">Insights & Analytics coming soon</h2></div>} />
               <Route path="/pipelines" element={<div className="text-center py-12"><h2 className="text-2xl font-semibold">Data Pipelines coming soon</h2></div>} />
-              <Route path="/settings" element={<div className="text-center py-12"><h2 className="text-2xl font-semibold">Settings coming soon</h2></div>} />
+              <Route path="/settings" element={<Settings currentRole={currentRole} />} />
               <Route path="/audit" element={<div className="text-center py-12"><h2 className="text-2xl font-semibold">Audit Logs coming soon</h2></div>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
