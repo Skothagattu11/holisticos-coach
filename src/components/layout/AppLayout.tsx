@@ -13,6 +13,8 @@ import {
   ChevronRight,
   Bell,
   Search,
+  Mail,
+  MessageCircle,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
@@ -66,6 +68,24 @@ const navigationItems = [
     label: "Feedback & Rules", 
     icon: MessageSquare, 
     roles: ["admin", "coach"] as UserRole[] 
+  },
+  { 
+    path: "/notifications", 
+    label: "Push Notifications", 
+    icon: Bell, 
+    roles: ["admin"] as UserRole[] 
+  },
+  { 
+    path: "/email", 
+    label: "Email", 
+    icon: Mail, 
+    roles: ["admin"] as UserRole[] 
+  },
+  { 
+    path: "/sms", 
+    label: "SMS", 
+    icon: MessageCircle, 
+    roles: ["admin"] as UserRole[] 
   },
   { 
     path: "/insights", 
