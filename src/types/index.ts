@@ -185,3 +185,196 @@ export interface Plan {
   createdAt: string;
   updatedAt: string;
 }
+
+// Coaching Status Types
+export type CoachingStatus =
+  | "pending_questionnaire"
+  | "pending_schedule"
+  | "scheduled_review"
+  | "active"
+  | "paused"
+  | "completed";
+
+export interface CoachingRelationship {
+  id: string;
+  coachId: string;
+  clientId: string;
+  status: CoachingStatus;
+  startedAt: string;
+  nextSessionAt?: string;
+  questionnaireCompletedAt?: string;
+  client?: Client;
+  coach?: Coach;
+}
+
+export interface CoachingSession {
+  id: string;
+  relationshipId: string;
+  scheduledAt: string;
+  sessionType: "initial_review" | "follow_up" | "check_in";
+  status: "scheduled" | "completed" | "cancelled" | "no_show";
+  notes?: string;
+  durationMinutes: number;
+}
+
+// Questionnaire Types
+export type QuestionType = "text" | "single_choice" | "multi_choice" | "scale" | "number";
+
+export interface QuestionnaireQuestion {
+  id: string;
+  questionnaireId: string;
+  question: string;
+  type: QuestionType;
+  options?: string[];
+  required: boolean;
+  orderIndex: number;
+}
+
+export interface Questionnaire {
+  id: string;
+  title: string;
+  description?: string;
+  specialty?: string;
+  isActive: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  questions: QuestionnaireQuestion[];
+}
+
+export interface QuestionnaireResponse {
+  id: string;
+  questionnaireId: string;
+  relationshipId: string;
+  clientId: string;
+  answers: Record<string, any>;
+  submittedAt: string;
+  questionnaire?: Questionnaire;
+}
+
+// Coach Certification Types
+export interface CoachCertification {
+  id: string;
+  coachId: string;
+  name: string;
+  issuer: string;
+  issuedAt?: string;
+  expiresAt?: string;
+  verificationUrl?: string;
+}
+
+// Expert Specialty Types
+export type ExpertSpecialty =
+  | "nutrition"
+  | "fitness"
+  | "sleep"
+  | "stress"
+  | "longevity"
+  | "hormones"
+  | "mental_health"
+  | "recovery";
+
+// Extended Coach Profile for Dashboard
+export interface CoachProfile extends Coach {
+  specialties: ExpertSpecialty[];
+  certificationsList: CoachCertification[];
+  hourlyRate?: number;
+  responseTimeHours?: number;
+  rating?: number;
+  reviewCount?: number;
+  clientCount?: number;
+  yearsExperience?: number;
+  timezone?: string;
+  location?: string;
+  language?: string;
+  isVerified?: boolean;
+  isAcceptingClients?: boolean;
+}
+
+// Client with Coaching Status for Dashboard
+export interface ClientWithStatus extends Client {
+  coachingStatus?: CoachingStatus;
+  nextSessionAt?: string;
+  questionnaireCompletedAt?: string;
+  relationshipId?: string;
+}
+
+// Coaching Plan Types
+export type PlanItemCategory =
+  | "nutrition"
+  | "fitness"
+  | "recovery"
+  | "mindfulness"
+  | "habits"
+  | "measurements";
+
+export type PlanItemFrequency = "daily" | "weekly" | "weekdays";
+
+export interface CoachingPlanItem {
+  id: string;
+  planId: string;
+  title: string;
+  description?: string;
+  category: PlanItemCategory;
+  frequency: PlanItemFrequency;
+  scheduledTime?: string; // HH:MM format
+  durationMinutes?: number;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface CoachingPlan {
+  id: string;
+  relationshipId: string;
+  title: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  items?: CoachingPlanItem[];
+}
+
+// Weekly Check-in Types for Coach Dashboard
+export type CheckinStatus = "draft" | "submitted" | "reviewed";
+
+export interface WeeklyTaskRecord {
+  id: string;
+  checkinId: string;
+  planItemId: string;
+  scheduledDate: string;
+  completed: boolean;
+  completedAt?: string;
+  notes?: string;
+  planItem?: CoachingPlanItem;
+}
+
+export interface WeeklyCheckin {
+  id: string;
+  relationshipId: string;
+  weekNumber: number;
+  weekStart: string;
+  weekEnd: string;
+  weight?: number;
+  wins?: string;
+  issues?: string;
+  coachFeedback?: string;
+  isReviewed: boolean;
+  status: CheckinStatus;
+  createdAt: string;
+  updatedAt: string;
+  tasks?: WeeklyTaskRecord[];
+  photos?: { id: string; photoUrl: string; uploadedAt: string }[];
+}
+
+// Chat Message Types for Coach Dashboard
+export interface ChatMessage {
+  id: string;
+  relationshipId: string;
+  senderId: string;
+  senderName?: string;
+  isCoach: boolean;
+  content: string;
+  checkinId?: string;
+  sentAt: string;
+  readAt?: string;
+}

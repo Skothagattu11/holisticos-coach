@@ -1,20 +1,19 @@
 import { ReactNode, useState } from "react";
-import { 
-  LayoutDashboard, 
-  Users, 
-  UserCog, 
-  Calendar, 
+import {
+  LayoutDashboard,
+  Users,
+  UserCog,
+  Calendar,
   MessageSquare,
-  Activity,
-  Database,
   Settings,
   FileText,
+  LayoutTemplate,
   ChevronLeft,
   ChevronRight,
   Bell,
   Search,
-  Mail,
-  MessageCircle,
+  LogOut,
+  Shield,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
@@ -31,92 +30,76 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import type { AuthUser } from "@/lib/services/authService";
 
 interface AppLayoutProps {
   children: ReactNode;
   currentRole: UserRole;
-  onRoleChange: (role: UserRole) => void;
+  currentUser?: AuthUser | null;
+  onSignOut?: () => void;
 }
 
 const navigationItems = [
-  { 
-    path: "/", 
-    label: "Overview", 
-    icon: LayoutDashboard, 
-    roles: ["admin", "coach", "client"] as UserRole[] 
+  {
+    path: "/",
+    label: "Overview",
+    icon: LayoutDashboard,
+    roles: ["admin", "coach", "client"] as UserRole[]
   },
-  { 
-    path: "/clients", 
-    label: "Clients", 
-    icon: Users, 
-    roles: ["admin", "coach"] as UserRole[] 
+  {
+    path: "/clients",
+    label: "Clients",
+    icon: Users,
+    roles: ["admin", "coach"] as UserRole[]
   },
-  { 
-    path: "/coaches", 
-    label: "Coaches", 
-    icon: UserCog, 
-    roles: ["admin"] as UserRole[] 
+  {
+    path: "/coaches",
+    label: "Coaches",
+    icon: UserCog,
+    roles: ["admin", "coach"] as UserRole[]
   },
-  { 
-    path: "/plans", 
-    label: "Plans & Routines", 
-    icon: Calendar, 
-    roles: ["admin", "coach"] as UserRole[] 
+  {
+    path: "/plans",
+    label: "Plans & Routines",
+    icon: Calendar,
+    roles: ["admin", "coach"] as UserRole[]
   },
-  { 
-    path: "/feedback", 
-    label: "Feedback & Rules", 
-    icon: MessageSquare, 
-    roles: ["admin", "coach"] as UserRole[] 
+  {
+    path: "/feedback",
+    label: "Feedback & Rules",
+    icon: MessageSquare,
+    roles: ["admin", "coach"] as UserRole[]
   },
-  { 
-    path: "/notifications", 
-    label: "Push Notifications", 
-    icon: Bell, 
-    roles: ["admin"] as UserRole[] 
+  {
+    path: "/templates",
+    label: "Templates",
+    icon: LayoutTemplate,
+    roles: ["admin", "coach"] as UserRole[]
   },
-  { 
-    path: "/email", 
-    label: "Email", 
-    icon: Mail, 
-    roles: ["admin"] as UserRole[] 
+  {
+    path: "/users",
+    label: "User Management",
+    icon: Shield,
+    roles: ["admin"] as UserRole[]
   },
-  { 
-    path: "/sms", 
-    label: "SMS", 
-    icon: MessageCircle, 
-    roles: ["admin"] as UserRole[] 
+  {
+    path: "/settings",
+    label: "Settings",
+    icon: Settings,
+    roles: ["admin", "coach", "client"] as UserRole[]
   },
-  { 
-    path: "/insights", 
-    label: "Insights", 
-    icon: Activity, 
-    roles: ["admin", "coach"] as UserRole[] 
-  },
-  { 
-    path: "/pipelines", 
-    label: "Data Pipelines", 
-    icon: Database, 
-    roles: ["admin"] as UserRole[] 
-  },
-  { 
-    path: "/settings", 
-    label: "Settings", 
-    icon: Settings, 
-    roles: ["admin", "coach", "client"] as UserRole[] 
-  },
-  { 
-    path: "/audit", 
-    label: "Audit Logs", 
-    icon: FileText, 
-    roles: ["admin"] as UserRole[] 
+  {
+    path: "/audit",
+    label: "Audit Logs",
+    icon: FileText,
+    roles: ["admin"] as UserRole[]
   },
 ];
 
-export const AppLayout = ({ children, currentRole, onRoleChange }: AppLayoutProps) => {
+export const AppLayout = ({ children, currentRole, currentUser, onSignOut }: AppLayoutProps) => {
   const [collapsed, setCollapsed] = useState(false);
-  
-  const visibleItems = navigationItems.filter(item => 
+
+  const visibleItems = navigationItems.filter(item =>
     item.roles.includes(currentRole)
   );
 
@@ -136,10 +119,22 @@ export const AppLayout = ({ children, currentRole, onRoleChange }: AppLayoutProp
     }
   };
 
+  const getInitials = (name?: string, email?: string) => {
+    if (name) {
+      return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+    }
+    if (email) {
+      return email.slice(0, 2).toUpperCase();
+    }
+    return currentRole === "admin" ? "AD" : currentRole === "coach" ? "CO" : "CL";
+  };
+
+  const displayName = currentUser?.name || currentUser?.email?.split("@")[0] || "User";
+
   return (
     <div className="min-h-screen flex w-full bg-background">
       {/* Sidebar */}
-      <aside 
+      <aside
         className={cn(
           "bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col",
           collapsed ? "w-16" : "w-64"
@@ -192,32 +187,49 @@ export const AppLayout = ({ children, currentRole, onRoleChange }: AppLayoutProp
                 <Button variant="ghost" className="w-full justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent">
                   <Avatar className="h-8 w-8">
                     <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                      {currentRole === "admin" ? "AD" : currentRole === "coach" ? "CO" : "CL"}
+                      {getInitials(currentUser?.name, currentUser?.email)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 text-left text-sm">
-                    <div className="font-medium">Demo User</div>
+                    <div className="font-medium truncate">{displayName}</div>
                     <div className="text-xs text-muted-foreground capitalize">{currentRole}</div>
                   </div>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Switch Role (Demo)</DropdownMenuLabel>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium">{displayName}</p>
+                    <p className="text-xs text-muted-foreground">{currentUser?.email}</p>
+                  </div>
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onRoleChange("admin")}>
-                  <Badge className={cn("mr-2", getRoleColor("admin"))}>Admin</Badge>
-                  Full access
+                <DropdownMenuItem className="cursor-default">
+                  <Badge className={cn("mr-2", getRoleColor(currentRole))}>
+                    {getRoleName(currentRole)}
+                  </Badge>
+                  Current Role
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onRoleChange("coach")}>
-                  <Badge className={cn("mr-2", getRoleColor("coach"))}>Coach</Badge>
-                  Manage clients
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onRoleChange("client")}>
-                  <Badge className={cn("mr-2", getRoleColor("client"))}>Client</Badge>
-                  View only
-                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {onSignOut && (
+                  <DropdownMenuItem onClick={onSignOut} className="text-destructive focus:text-destructive">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
+          )}
+          {collapsed && onSignOut && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onSignOut}
+              className="w-full text-sidebar-foreground hover:bg-sidebar-accent"
+              title="Sign Out"
+            >
+              <LogOut className="h-5 w-5" />
+            </Button>
           )}
         </div>
       </aside>
@@ -228,12 +240,12 @@ export const AppLayout = ({ children, currentRole, onRoleChange }: AppLayoutProp
         <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
           <div className="flex items-center gap-4 flex-1 max-w-2xl">
             <Search className="h-5 w-5 text-muted-foreground" />
-            <Input 
-              placeholder="Search clients, coaches, plans..." 
+            <Input
+              placeholder="Search clients, coaches, plans..."
               className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
-          
+
           <div className="flex items-center gap-3">
             <Badge className={cn("capitalize", getRoleColor(currentRole))}>
               {getRoleName(currentRole)}

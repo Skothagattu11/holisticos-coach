@@ -1,60 +1,73 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { mockClients, generateMetricsHistory, mockFeedback, mockCheckIns, mockActivityMetrics, mockRoutines } from "@/lib/mock-data";
+import { useQuestionnaireResponses } from "@/hooks/useQuestionnaires";
+import { useCoachingRelationship } from "@/hooks/useClients";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ArrowLeft, TrendingUp, TrendingDown, CheckCircle2, Clock, CalendarCheck, FileQuestion, Loader2, ClipboardList, Eye } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { cn } from "@/lib/utils";
-import { RoutineForm } from "@/components/clients/RoutineForm";
-import { RoutineCard } from "@/components/clients/RoutineCard";
-import { RoutineCalendar } from "@/components/clients/RoutineCalendar";
 import { CheckInList } from "@/components/clients/CheckInList";
-import { ActivityMetrics } from "@/components/clients/ActivityMetrics";
-import { DateNavigator } from "@/components/clients/DateNavigator";
+import { PlanTab } from "@/components/clients/PlanTab";
 import { useState } from "react";
-import { RoutineBlock } from "@/types";
-import { toast } from "sonner";
+import { CoachingStatus, QuestionnaireResponse } from "@/types";
+
+const STATUS_CONFIG: Record<CoachingStatus, { label: string; color: string }> = {
+  pending_questionnaire: { label: "Questionnaire Pending", color: "bg-warning/10 text-warning" },
+  pending_schedule: { label: "Needs Scheduling", color: "bg-primary/10 text-primary" },
+  scheduled_review: { label: "Review Scheduled", color: "bg-accent/10 text-accent" },
+  active: { label: "Active", color: "bg-success/10 text-success" },
+  paused: { label: "Paused", color: "bg-muted text-muted-foreground" },
+  completed: { label: "Completed", color: "bg-secondary text-secondary-foreground" },
+};
 
 const ClientDetail = () => {
   const { clientId } = useParams();
   const navigate = useNavigate();
-  
-  const client = mockClients.find(c => c.id === clientId);
-  const metrics = generateMetricsHistory(clientId || "c1", 30);
-  const clientFeedback = mockFeedback.filter(f => f.targetId === clientId);
-  const clientCheckIns = mockCheckIns.filter(ci => ci.clientId === clientId);
-  const clientActivity = mockActivityMetrics;
 
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [routines, setRoutines] = useState<RoutineBlock[]>(mockRoutines.filter(r => r.clientId === clientId));
-  const [editingRoutine, setEditingRoutine] = useState<RoutineBlock | null>(null);
+  // Fetch data from database
+  const { data: questionnaireResponses = [], isLoading: loadingResponses } = useQuestionnaireResponses(clientId);
+  const { data: relationship, isLoading: loadingRelationship } = useCoachingRelationship(clientId);
 
-  const handleAddRoutine = (routine: Omit<RoutineBlock, "id">) => {
-    const newRoutine: RoutineBlock = {
-      ...routine,
-      id: `r${Date.now()}`,
+  // Modal state for questionnaire
+  const [showQuestionnaire, setShowQuestionnaire] = useState(false);
+
+  // Mock data for charts - to be replaced with real data later
+  const chartData = Array.from({ length: 14 }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (13 - i));
+    return {
+      date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      HRV: Math.floor(Math.random() * 30) + 40,
+      Sleep: Math.floor(Math.random() * 2) + 6,
+      RHR: Math.floor(Math.random() * 10) + 55,
     };
-    setRoutines([...routines, newRoutine]);
-  };
+  });
 
-  const handleUpdateRoutine = (updatedRoutine: RoutineBlock) => {
-    setRoutines(routines.map(r => r.id === updatedRoutine.id ? updatedRoutine : r));
-    setEditingRoutine(null);
-    toast.success("Routine updated successfully");
-  };
-
-  const handleDeleteRoutine = (id: string) => {
-    setRoutines(routines.filter(r => r.id !== id));
-    toast.success("Routine deleted successfully");
-  };
+  const clientCheckIns: Array<{
+    id: string;
+    date: string;
+    mood: number;
+    energy: number;
+    notes: string;
+    responded: boolean;
+  }> = [];
 
   const handleCheckInMessage = (checkInId: string, message: string) => {
-    toast.success("Message sent to client");
+    console.log("Message sent to client", checkInId, message);
   };
 
-  if (!client) {
+  if (loadingRelationship) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!relationship) {
     return (
       <div className="text-center py-12">
         <h2 className="text-2xl font-semibold mb-2">Client not found</h2>
@@ -72,12 +85,50 @@ const ClientDetail = () => {
     return colors[level as keyof typeof colors] || colors.low;
   };
 
-  const chartData = metrics.slice(-14).map(m => ({
-    date: new Date(m.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    HRV: m.hrv || null,
-    Sleep: m.sleep || null,
-    RHR: m.rhr || null,
-  }));
+  const formatDateTime = (dateString?: string) => {
+    if (!dateString) return "—";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
+  // Render questionnaire response answers
+  const renderAnswer = (question: any, answer: any) => {
+    if (Array.isArray(answer)) {
+      return (
+        <div className="flex flex-wrap gap-1">
+          {answer.map((a, i) => (
+            <Badge key={i} variant="secondary">{a}</Badge>
+          ))}
+        </div>
+      );
+    }
+    return <span className="text-foreground">{String(answer)}</span>;
+  };
+
+  // Get client info from relationship
+  const clientInfo = (relationship as any)?.client || {};
+  const displayClient = {
+    name: clientInfo.name || clientInfo.email?.split("@")[0] || "Client",
+    email: clientInfo.email || "",
+    riskLevel: "low" as const,
+    adherence7d: 0,
+    adherence30d: 0,
+    sleep7dAvg: 0,
+    hrv7dAvg: 0,
+    rhr7dAvg: 0,
+    archetypes: [] as string[],
+    goals: [] as string[],
+    devices: [] as string[],
+    assignedCoachName: (relationship as any)?.coach?.name || "",
+  };
+
+  const coachingStatus = relationship?.status as CoachingStatus || "active";
+  const statusConfig = STATUS_CONFIG[coachingStatus];
 
   return (
     <div className="space-y-6">
@@ -86,13 +137,74 @@ const ClientDetail = () => {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-foreground">{client.name}</h1>
-          <p className="text-muted-foreground">{client.email}</p>
+          <h1 className="text-3xl font-bold text-foreground">{displayClient.name}</h1>
+          <p className="text-muted-foreground">{displayClient.email}</p>
         </div>
-        <Badge className={cn("capitalize", getRiskBadge(client.riskLevel))}>
-          {client.riskLevel} Risk
+        <Badge className={cn("capitalize", statusConfig?.color || getRiskBadge(displayClient.riskLevel))}>
+          {statusConfig?.label || `${displayClient.riskLevel} Risk`}
         </Badge>
       </div>
+
+      {/* Coaching Status Card */}
+      {relationship && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <CalendarCheck className="h-4 w-4" />
+              Coaching Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Status</p>
+                <Badge className={cn("mt-1", statusConfig?.color)}>
+                  {statusConfig?.label}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Started</p>
+                <p className="text-sm font-medium mt-1">
+                  {relationship.hiredAt ? new Date(relationship.hiredAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  }) : "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Next Session</p>
+                {relationship.nextSessionAt ? (
+                  <p className="text-sm font-medium mt-1">
+                    {formatDateTime(relationship.nextSessionAt)}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground mt-1">Not scheduled</p>
+                )}
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Initial Assessment</p>
+                {relationship.questionnaireCompletedAt || questionnaireResponses.length > 0 ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-1 gap-2"
+                    onClick={() => setShowQuestionnaire(true)}
+                  >
+                    <Eye className="h-3 w-3" />
+                    View Assessment
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2 mt-1 text-warning">
+                    <Clock className="h-4 w-4" />
+                    <span className="text-sm font-medium">Pending</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
@@ -100,10 +212,10 @@ const ClientDetail = () => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Adherence 7d</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{client.adherence7d}%</div>
+            <div className="text-2xl font-bold">{displayClient.adherence7d}%</div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
               <TrendingDown className="h-3 w-3" />
-              <span>vs 30d: {client.adherence30d}%</span>
+              <span>vs 30d: {displayClient.adherence30d}%</span>
             </div>
           </CardContent>
         </Card>
@@ -113,7 +225,7 @@ const ClientDetail = () => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Sleep Avg</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{client.sleep7dAvg.toFixed(1)}h</div>
+            <div className="text-2xl font-bold">{displayClient.sleep7dAvg.toFixed(1)}h</div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
               <span>Target: 7.5h</span>
             </div>
@@ -125,7 +237,7 @@ const ClientDetail = () => {
             <CardTitle className="text-sm font-medium text-muted-foreground">HRV 7d</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{client.hrv7dAvg}</div>
+            <div className="text-2xl font-bold">{displayClient.hrv7dAvg}</div>
             <div className="flex items-center gap-1 text-xs text-success mt-1">
               <TrendingUp className="h-3 w-3" />
               <span>+4 vs baseline</span>
@@ -138,26 +250,21 @@ const ClientDetail = () => {
             <CardTitle className="text-sm font-medium text-muted-foreground">RHR 7d</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{client.rhr7dAvg}</div>
+            <div className="text-2xl font-bold">{displayClient.rhr7dAvg}</div>
             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-              <span>Baseline: {client.rhr7dAvg - 2}</span>
+              <span>Baseline: {displayClient.rhr7dAvg - 2}</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <div className="flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="metrics">Metrics</TabsTrigger>
-            <TabsTrigger value="routine">Routine</TabsTrigger>
-            <TabsTrigger value="checkin">Check-ins</TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
-            <TabsTrigger value="feedback">Feedback History</TabsTrigger>
-          </TabsList>
-          <DateNavigator date={selectedDate} onDateChange={setSelectedDate} />
-        </div>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="plan">Plan</TabsTrigger>
+          <TabsTrigger value="metrics">Metrics</TabsTrigger>
+          <TabsTrigger value="checkin">Check-ins</TabsTrigger>
+        </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           <Card>
@@ -169,34 +276,50 @@ const ClientDetail = () => {
                 <div>
                   <div className="text-sm text-muted-foreground">Archetypes</div>
                   <div className="flex gap-2 mt-1">
-                    {client.archetypes.map(arch => (
-                      <Badge key={arch} variant="outline">{arch}</Badge>
-                    ))}
+                    {displayClient.archetypes.length > 0 ? (
+                      displayClient.archetypes.map(arch => (
+                        <Badge key={arch} variant="outline">{arch}</Badge>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground text-sm">Not set</span>
+                    )}
                   </div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">Assigned Coach</div>
-                  <div className="font-medium mt-1">{client.assignedCoachName}</div>
+                  <div className="font-medium mt-1">{displayClient.assignedCoachName || "—"}</div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">Goals</div>
                   <div className="mt-1">
-                    {client.goals.map(goal => (
-                      <div key={goal} className="text-sm">{goal}</div>
-                    ))}
+                    {displayClient.goals.length > 0 ? (
+                      displayClient.goals.map(goal => (
+                        <div key={goal} className="text-sm">{goal}</div>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground text-sm">No goals set</span>
+                    )}
                   </div>
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">Connected Devices</div>
                   <div className="flex gap-2 mt-1">
-                    {client.devices.map(device => (
-                      <Badge key={device} variant="secondary" className="text-xs">{device}</Badge>
-                    ))}
+                    {displayClient.devices.length > 0 ? (
+                      displayClient.devices.map(device => (
+                        <Badge key={device} variant="secondary" className="text-xs">{device}</Badge>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground text-sm">No devices</span>
+                    )}
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="plan" className="space-y-4">
+          {clientId && <PlanTab relationshipId={clientId} />}
         </TabsContent>
 
         <TabsContent value="metrics" className="space-y-4">
@@ -210,8 +333,8 @@ const ClientDetail = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <Tooltip 
-                    contentStyle={{ 
+                  <Tooltip
+                    contentStyle={{
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "var(--radius)"
@@ -225,294 +348,78 @@ const ClientDetail = () => {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Sleep Quality</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Average Duration</span>
-                  <span className="font-semibold">{client.sleep7dAvg.toFixed(1)}h</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Sleep Efficiency</span>
-                  <span className="font-semibold">87%</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Deep Sleep</span>
-                  <span className="font-semibold">1.8h</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">REM Sleep</span>
-                  <span className="font-semibold">1.5h</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Heart Rate Variability</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">7-Day Average</span>
-                  <span className="font-semibold">{client.hrv7dAvg} ms</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Baseline</span>
-                  <span className="font-semibold">{client.hrv7dAvg - 4} ms</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Trend</span>
-                  <span className="font-semibold text-success">↑ Improving</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Recovery Status</span>
-                  <Badge variant="secondary" className="text-xs">Good</Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Resting Heart Rate</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">7-Day Average</span>
-                  <span className="font-semibold">{client.rhr7dAvg} bpm</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Baseline</span>
-                  <span className="font-semibold">{client.rhr7dAvg - 2} bpm</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Min (7d)</span>
-                  <span className="font-semibold">{client.rhr7dAvg - 3} bpm</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Max (7d)</span>
-                  <span className="font-semibold">{client.rhr7dAvg + 4} bpm</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Activity & Steps</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Daily Average</span>
-                  <span className="font-semibold">8,450 steps</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Target</span>
-                  <span className="font-semibold">10,000 steps</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Active Minutes</span>
-                  <span className="font-semibold">45 min/day</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Calories Burned</span>
-                  <span className="font-semibold">2,340 kcal</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Training Load</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Weekly Load</span>
-                  <span className="font-semibold">285</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Load Status</span>
-                  <Badge variant="secondary" className="text-xs">Optimal</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Strain</span>
-                  <span className="font-semibold">13.2</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">vs Last Week</span>
-                  <span className="font-semibold text-success">+8%</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium">Stress & Recovery</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Stress Level</span>
-                  <span className="font-semibold">Medium</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Recovery Score</span>
-                  <span className="font-semibold">78%</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Readiness</span>
-                  <Badge className="text-xs bg-success/10 text-success">High</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Respiratory Rate</span>
-                  <span className="font-semibold">14.5 brpm</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="routine" className="space-y-4">
-          <Tabs defaultValue="today" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="today">Today's Routine</TabsTrigger>
-              <TabsTrigger value="calendar">Calendar View</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="today" className="space-y-4">
-              <RoutineForm 
-                clientId={clientId || ""} 
-                editingRoutine={editingRoutine}
-                onAdd={handleAddRoutine}
-                onUpdate={handleUpdateRoutine}
-                onCancel={() => setEditingRoutine(null)}
-              />
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    Routines for {new Date().toLocaleDateString('en-US', { 
-                      weekday: 'long',
-                      month: 'long', 
-                      day: 'numeric', 
-                      year: 'numeric' 
-                    })}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {routines
-                      .filter(routine => {
-                        const routineDate = new Date(routine.start);
-                        const today = new Date();
-                        return routineDate.toDateString() === today.toDateString();
-                      })
-                      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-                      .map((routine) => (
-                        <RoutineCard
-                          key={routine.id}
-                          routine={routine}
-                          onEdit={setEditingRoutine}
-                          onDelete={handleDeleteRoutine}
-                        />
-                      ))}
-                    {routines.filter(r => new Date(r.start).toDateString() === new Date().toDateString()).length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        No routines scheduled for today
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="calendar" className="space-y-4">
-              <RoutineCalendar 
-                routines={routines}
-                selectedDate={selectedDate}
-                onDateSelect={setSelectedDate}
-              />
-
-              {routines.filter(r => new Date(r.start).toDateString() === selectedDate.toDateString()).length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Manage Routines</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {routines
-                        .filter(routine => {
-                          const routineDate = new Date(routine.start);
-                          return routineDate.toDateString() === selectedDate.toDateString();
-                        })
-                        .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-                        .map((routine) => (
-                          <RoutineCard
-                            key={routine.id}
-                            routine={routine}
-                            onEdit={setEditingRoutine}
-                            onDelete={handleDeleteRoutine}
-                          />
-                        ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-          </Tabs>
         </TabsContent>
 
         <TabsContent value="checkin" className="space-y-4">
           <CheckInList checkIns={clientCheckIns} onSendMessage={handleCheckInMessage} />
         </TabsContent>
+      </Tabs>
 
-        <TabsContent value="activity" className="space-y-4">
-          <ActivityMetrics metrics={clientActivity} />
-        </TabsContent>
-
-        <TabsContent value="feedback" className="space-y-4">
-          {clientFeedback.length > 0 ? (
-            clientFeedback.map((feedback) => (
-              <Card key={feedback.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
+      {/* Initial Assessment Dialog */}
+      <Dialog open={showQuestionnaire} onOpenChange={setShowQuestionnaire}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5" />
+              Initial Assessment
+            </DialogTitle>
+          </DialogHeader>
+          {loadingResponses ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : questionnaireResponses.length === 0 ? (
+            <div className="py-12 text-center">
+              <FileQuestion className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">No Assessment Completed</h3>
+              <p className="text-muted-foreground">
+                The client has not completed their initial assessment yet.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {questionnaireResponses.map((response: QuestionnaireResponse) => (
+                <div key={response.id}>
+                  <div className="flex items-center justify-between mb-4">
                     <div>
-                      <CardTitle className="text-base">{feedback.category.replace("-", " ")}</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        by {feedback.authorName} • {new Date(feedback.createdAt).toLocaleDateString()}
+                      <h3 className="font-medium">{response.questionnaire?.title || "Assessment"}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Submitted {formatDateTime(response.submittedAt)}
                       </p>
                     </div>
-                    <Badge variant={
-                      feedback.status === "applied" ? "default" : 
-                      feedback.status === "triaged" ? "secondary" : 
-                      "outline"
-                    }>
-                      {feedback.status}
+                    <Badge variant="outline" className="gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Completed
                     </Badge>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <div className="text-sm font-medium mb-1">Evidence:</div>
-                    <p className="text-sm text-muted-foreground">{feedback.evidence}</p>
+                  <div className="space-y-4">
+                    {response.questionnaire?.questions.map((question, idx) => {
+                      const answer = response.answers[question.id];
+                      return (
+                        <div key={question.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
+                          <div className="flex items-start gap-3">
+                            <span className="text-sm font-medium text-muted-foreground min-w-[24px]">{idx + 1}.</span>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium mb-2">{question.question}</p>
+                              <div className="bg-muted/50 rounded-md p-3">
+                                {answer !== undefined ? (
+                                  renderAnswer(question, answer)
+                                ) : (
+                                  <span className="text-muted-foreground italic">No answer provided</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div>
-                    <div className="text-sm font-medium mb-1">Proposed Fix:</div>
-                    <p className="text-sm text-muted-foreground">{feedback.proposedFix}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">No feedback recorded yet</p>
-              </CardContent>
-            </Card>
+                </div>
+              ))}
+            </div>
           )}
-        </TabsContent>
-      </Tabs>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
