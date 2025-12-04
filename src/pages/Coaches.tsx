@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { useCoaches, useCreateCoach, useAddCertification, useUpdateSpecialties, useUpdateCoach, useExpertIdForUser } from "@/hooks/useCoaches";
 import { useCoachClients } from "@/hooks/useClients";
 import { useCoachQuestionnaires } from "@/hooks/useQuestionnaires";
-import { Users, Star, TrendingUp, Clock, CheckCircle2, Plus, Award, Loader2, RefreshCw, Search, ChevronRight, FileQuestion, Image, Pencil, User, ShieldCheck, UserCheck, Power, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, Star, TrendingUp, Clock, CheckCircle2, Plus, Award, Loader2, RefreshCw, Search, ChevronRight, FileQuestion, Image, Pencil, User, ShieldCheck, UserCheck, Power, Check, ChevronDown, ChevronUp, CalendarClock, Trash2, X, CalendarOff } from "lucide-react";
 import { useCreateQuestionnaire } from "@/hooks/useQuestionnaires";
 import { coachService } from "@/lib/services/coachService";
 import type { QuestionType } from "@/types";
@@ -140,6 +140,22 @@ const Coaches = ({ currentRole = "admin", currentCoachId }: CoachesProps) => {
   const [editLocation, setEditLocation] = useState("");
   const [editLanguage, setEditLanguage] = useState("");
 
+  // Availability state
+  const [availabilitySlots, setAvailabilitySlots] = useState<any[]>([]);
+  const [blockedDates, setBlockedDates] = useState<any[]>([]);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<number>(1); // Default to Monday
+  const [addBlockedDateDialogOpen, setAddBlockedDateDialogOpen] = useState(false);
+  const [newSlotStart, setNewSlotStart] = useState("09:00");
+  const [newSlotEnd, setNewSlotEnd] = useState("17:00");
+  const [newBlockedDate, setNewBlockedDate] = useState({ date: "", reason: "" });
+  const [savingAvailability, setSavingAvailability] = useState(false);
+
+  // Sessions state
+  const [sessionRequests, setSessionRequests] = useState<any[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [confirmingSession, setConfirmingSession] = useState<string | null>(null);
+
   // Hooks
   const { data: coaches = [], isLoading, error, refetch: refetchCoaches } = useCoaches();
   const createCoachMutation = useCreateCoach();
@@ -188,6 +204,48 @@ const Coaches = ({ currentRole = "admin", currentCoachId }: CoachesProps) => {
       setSelectedCoachId(expertId);
     }
   }, [isCoachView, expertId, selectedCoachId]);
+
+  // Fetch availability when coach is selected
+  useEffect(() => {
+    const fetchAvailabilityData = async () => {
+      if (!selectedCoachId) return;
+
+      setLoadingAvailability(true);
+      try {
+        const [slots, blocked] = await Promise.all([
+          coachService.fetchAvailability(selectedCoachId),
+          coachService.fetchBlockedDates(selectedCoachId),
+        ]);
+        setAvailabilitySlots(slots);
+        setBlockedDates(blocked);
+      } catch (err) {
+        console.error('Error fetching availability:', err);
+      } finally {
+        setLoadingAvailability(false);
+      }
+    };
+
+    fetchAvailabilityData();
+  }, [selectedCoachId]);
+
+  // Fetch session requests when coach is selected
+  useEffect(() => {
+    const fetchSessions = async () => {
+      if (!selectedCoachId) return;
+
+      setLoadingSessions(true);
+      try {
+        const sessions = await coachService.fetchSessionRequests(selectedCoachId);
+        setSessionRequests(sessions);
+      } catch (err) {
+        console.error('Error fetching sessions:', err);
+      } finally {
+        setLoadingSessions(false);
+      }
+    };
+
+    fetchSessions();
+  }, [selectedCoachId]);
 
   const getCoachStats = (coachId: string, clients: ClientWithStatus[] = []) => {
     const activeClients = clients.filter(c => c.coachingStatus === "active");
@@ -427,6 +485,159 @@ const Coaches = ({ currentRole = "admin", currentCoachId }: CoachesProps) => {
     }
   };
 
+  // Availability handlers
+  const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const DAY_NAMES_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  const handleAddAvailabilitySlot = async () => {
+    if (!selectedCoachId) return;
+
+    // Validate times
+    if (newSlotStart >= newSlotEnd) {
+      toast.error("End time must be after start time");
+      return;
+    }
+
+    // Check for overlapping slots on the same day
+    const daySlots = availabilitySlots.filter(s => s.day_of_week === selectedDay);
+    const hasOverlap = daySlots.some(slot => {
+      const existingStart = slot.start_time;
+      const existingEnd = slot.end_time;
+      // Check if new slot overlaps with existing
+      return (newSlotStart < existingEnd && newSlotEnd > existingStart);
+    });
+
+    if (hasOverlap) {
+      toast.error("This time slot overlaps with an existing slot");
+      return;
+    }
+
+    setSavingAvailability(true);
+    try {
+      const newSlotData = await coachService.addAvailabilitySlot(selectedCoachId, {
+        dayOfWeek: selectedDay,
+        startTime: newSlotStart,
+        endTime: newSlotEnd,
+      });
+      setAvailabilitySlots(prev => [...prev, newSlotData].sort((a, b) => {
+        if (a.day_of_week !== b.day_of_week) return a.day_of_week - b.day_of_week;
+        return a.start_time.localeCompare(b.start_time);
+      }));
+      // Reset to default times for next slot
+      setNewSlotStart("09:00");
+      setNewSlotEnd("17:00");
+      toast.success(`Slot added for ${DAY_NAMES_FULL[selectedDay]}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to add availability slot");
+    } finally {
+      setSavingAvailability(false);
+    }
+  };
+
+  const handleDeleteAvailabilitySlot = async (slotId: string) => {
+    try {
+      await coachService.deleteAvailabilitySlot(slotId);
+      setAvailabilitySlots(prev => prev.filter(s => s.id !== slotId));
+      toast.success("Availability slot removed");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to remove availability slot");
+    }
+  };
+
+  const handleAddBlockedDate = async () => {
+    if (!selectedCoachId || !newBlockedDate.date) {
+      toast.error("Please select a date");
+      return;
+    }
+
+    setSavingAvailability(true);
+    try {
+      const newBlocked = await coachService.addBlockedDate(
+        selectedCoachId,
+        newBlockedDate.date,
+        newBlockedDate.reason || undefined
+      );
+      setBlockedDates(prev => [...prev, newBlocked].sort((a, b) =>
+        a.blocked_date.localeCompare(b.blocked_date)
+      ));
+      setAddBlockedDateDialogOpen(false);
+      setNewBlockedDate({ date: "", reason: "" });
+      toast.success("Blocked date added");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to add blocked date");
+    } finally {
+      setSavingAvailability(false);
+    }
+  };
+
+  const handleDeleteBlockedDate = async (blockedDateId: string) => {
+    try {
+      await coachService.deleteBlockedDate(blockedDateId);
+      setBlockedDates(prev => prev.filter(b => b.id !== blockedDateId));
+      toast.success("Blocked date removed");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to remove blocked date");
+    }
+  };
+
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
+  // Session handlers
+  const handleConfirmSession = async (sessionId: string, slotIndex: number, slotTime: string) => {
+    setConfirmingSession(sessionId);
+    try {
+      await coachService.confirmSessionRequest(sessionId, slotIndex, slotTime);
+      // Refresh sessions
+      const sessions = await coachService.fetchSessionRequests(selectedCoachId!);
+      setSessionRequests(sessions);
+      toast.success("Session confirmed!");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to confirm session");
+    } finally {
+      setConfirmingSession(null);
+    }
+  };
+
+  const handleCancelSession = async (sessionId: string) => {
+    try {
+      await coachService.cancelSessionRequest(sessionId);
+      setSessionRequests(prev => prev.filter(s => s.id !== sessionId));
+      toast.success("Session cancelled");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to cancel session");
+    }
+  };
+
+  const formatDateTime = (isoString: string) => {
+    const date = new Date(isoString);
+    return date.toLocaleString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  // Group availability slots by day
+  const slotsByDay = useMemo(() => {
+    const grouped: Record<number, any[]> = {};
+    availabilitySlots.forEach(slot => {
+      if (!grouped[slot.day_of_week]) {
+        grouped[slot.day_of_week] = [];
+      }
+      grouped[slot.day_of_week].push(slot);
+    });
+    return grouped;
+  }, [availabilitySlots]);
+
   if (isLoading || (isCoachView && loadingExpertId)) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -643,13 +854,151 @@ const Coaches = ({ currentRole = "admin", currentCoachId }: CoachesProps) => {
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="clients" className="space-y-4">
+        <Tabs defaultValue="sessions" className="space-y-4">
           <TabsList>
+            <TabsTrigger value="sessions">
+              Sessions
+              {sessionRequests.filter(s => s.status === 'pending_coach_review').length > 0 && (
+                <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                  {sessionRequests.filter(s => s.status === 'pending_coach_review').length}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="clients">Clients ({coachClients.length})</TabsTrigger>
             <TabsTrigger value="questionnaires">Questionnaires ({coachQuestionnaires.length})</TabsTrigger>
+            <TabsTrigger value="availability">Availability</TabsTrigger>
             <TabsTrigger value="about">About</TabsTrigger>
             <TabsTrigger value="certifications">Certifications</TabsTrigger>
           </TabsList>
+
+          {/* Sessions Tab */}
+          <TabsContent value="sessions" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarClock className="h-5 w-5" />
+                  Session Requests
+                </CardTitle>
+                <CardDescription>Review and confirm session requests from clients</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loadingSessions ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : sessionRequests.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CalendarClock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">No session requests</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Session requests from clients will appear here
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Pending Requests */}
+                    {sessionRequests.filter(s => s.status === 'pending_coach_review').length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-sm text-orange-600 flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          Pending Your Review ({sessionRequests.filter(s => s.status === 'pending_coach_review').length})
+                        </h4>
+                        {sessionRequests.filter(s => s.status === 'pending_coach_review').map((session: any) => {
+                          const clientName = session.coaching_relationships?.profiles?.full_name || 'Unknown Client';
+                          const proposedSlots = session.proposed_slots || [];
+
+                          return (
+                            <div key={session.id} className="border rounded-lg p-4 bg-orange-50 dark:bg-orange-950/20">
+                              <div className="flex items-start justify-between mb-3">
+                                <div>
+                                  <p className="font-medium text-foreground">{clientName}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {session.session_type === 'initial_review' ? 'Initial Review' : 'Follow-up'} • 30 min
+                                  </p>
+                                </div>
+                                <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-200">
+                                  Awaiting Confirmation
+                                </Badge>
+                              </div>
+                              <div className="space-y-2">
+                                <p className="text-sm font-medium text-muted-foreground">
+                                  Client's proposed times ({proposedSlots.length} options):
+                                </p>
+                                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                  {proposedSlots.map((slot: any, idx: number) => (
+                                    <Button
+                                      key={idx}
+                                      variant="outline"
+                                      size="sm"
+                                      className="justify-start h-auto py-2 px-3"
+                                      onClick={() => handleConfirmSession(session.id, idx, slot.time)}
+                                      disabled={confirmingSession === session.id}
+                                    >
+                                      {confirmingSession === session.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                      ) : (
+                                        <Check className="h-4 w-4 mr-2 text-green-600" />
+                                      )}
+                                      <span className="text-sm">{formatDateTime(slot.time)}</span>
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="mt-3 pt-3 border-t flex justify-end">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => handleCancelSession(session.id)}
+                                >
+                                  <X className="h-4 w-4 mr-1" />
+                                  Decline
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Confirmed Sessions */}
+                    {sessionRequests.filter(s => s.status === 'scheduled').length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-sm text-green-600 flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4" />
+                          Upcoming Sessions ({sessionRequests.filter(s => s.status === 'scheduled').length})
+                        </h4>
+                        {sessionRequests.filter(s => s.status === 'scheduled').map((session: any) => {
+                          const clientName = session.coaching_relationships?.profiles?.full_name || 'Unknown Client';
+
+                          return (
+                            <div key={session.id} className="border rounded-lg p-4 bg-green-50 dark:bg-green-950/20">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium text-foreground">{clientName}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {session.session_type === 'initial_review' ? 'Initial Review' : 'Follow-up'} • 30 min
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <Badge variant="default" className="bg-green-600">
+                                    Confirmed
+                                  </Badge>
+                                  <p className="text-sm font-medium mt-1">
+                                    {session.scheduled_at ? formatDateTime(session.scheduled_at) : 'Time TBD'}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="clients" className="space-y-4">
             <Card>
@@ -819,6 +1168,252 @@ const Coaches = ({ currentRole = "admin", currentCoachId }: CoachesProps) => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Availability Tab */}
+          <TabsContent value="availability" className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-2">
+              {/* Weekly Schedule */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CalendarClock className="h-5 w-5" />
+                    Weekly Schedule
+                  </CardTitle>
+                  <CardDescription>Click a day to manage your available time slots</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {loadingAvailability ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <>
+                      {/* Day Selector Row */}
+                      <div className="flex gap-1">
+                        {DAY_NAMES.map((day, dayIndex) => {
+                          const daySlots = slotsByDay[dayIndex] || [];
+                          const hasSlots = daySlots.length > 0;
+                          const isSelected = selectedDay === dayIndex;
+
+                          return (
+                            <button
+                              key={dayIndex}
+                              onClick={() => setSelectedDay(dayIndex)}
+                              className={`
+                                flex-1 py-3 px-2 rounded-lg text-center transition-all
+                                ${isSelected
+                                  ? 'bg-primary text-primary-foreground shadow-md'
+                                  : hasSlots
+                                    ? 'bg-primary/10 hover:bg-primary/20 text-foreground'
+                                    : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                                }
+                              `}
+                            >
+                              <div className="text-xs font-medium">{day}</div>
+                              {hasSlots && (
+                                <div className={`text-[10px] mt-0.5 ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                                  {daySlots.length} slot{daySlots.length > 1 ? 's' : ''}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Selected Day Content */}
+                      <div className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-semibold text-foreground">{DAY_NAMES_FULL[selectedDay]}</h4>
+                          <Badge variant="outline">
+                            {(slotsByDay[selectedDay] || []).length} slot{(slotsByDay[selectedDay] || []).length !== 1 ? 's' : ''}
+                          </Badge>
+                        </div>
+
+                        {/* Existing Slots for Selected Day */}
+                        <div className="space-y-2 mb-4">
+                          {(slotsByDay[selectedDay] || []).length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                              No availability set for {DAY_NAMES_FULL[selectedDay]}
+                            </p>
+                          ) : (
+                            (slotsByDay[selectedDay] || []).map((slot: any) => (
+                              <div
+                                key={slot.id}
+                                className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <Clock className="h-4 w-4 text-primary" />
+                                  <span className="text-sm font-medium">
+                                    {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+                                  </span>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => handleDeleteAvailabilitySlot(slot.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        {/* Add New Slot Form */}
+                        <div className="border-t pt-4">
+                          <Label className="text-sm text-muted-foreground mb-3 block">Add time slot</Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="time"
+                              value={newSlotStart}
+                              onChange={(e) => setNewSlotStart(e.target.value)}
+                              className="w-[120px]"
+                            />
+                            <span className="text-muted-foreground">to</span>
+                            <Input
+                              type="time"
+                              value={newSlotEnd}
+                              onChange={(e) => setNewSlotEnd(e.target.value)}
+                              className="w-[120px]"
+                            />
+                            <Button
+                              onClick={handleAddAvailabilitySlot}
+                              disabled={savingAvailability}
+                              size="sm"
+                            >
+                              {savingAvailability ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <Plus className="h-4 w-4 mr-1" />
+                                  Add
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Sessions will be available in 30-minute slots within this time range
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quick Overview */}
+                      <div className="text-xs text-muted-foreground">
+                        <span className="font-medium">Total:</span>{' '}
+                        {availabilitySlots.length} time slot{availabilitySlots.length !== 1 ? 's' : ''} across{' '}
+                        {Object.keys(slotsByDay).length} day{Object.keys(slotsByDay).length !== 1 ? 's' : ''}
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Blocked Dates */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <CalendarOff className="h-5 w-5" />
+                      Blocked Dates
+                    </CardTitle>
+                    <CardDescription>Dates when you're unavailable (vacation, holidays, etc.)</CardDescription>
+                  </div>
+                  <Dialog open={addBlockedDateDialogOpen} onOpenChange={setAddBlockedDateDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="outline">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Block Date
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Block a Date</DialogTitle>
+                        <DialogDescription>Mark a specific date as unavailable</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="blocked-date">Date</Label>
+                          <Input
+                            id="blocked-date"
+                            type="date"
+                            value={newBlockedDate.date}
+                            onChange={(e) => setNewBlockedDate(prev => ({ ...prev, date: e.target.value }))}
+                            min={new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="block-reason">Reason (optional)</Label>
+                          <Input
+                            id="block-reason"
+                            value={newBlockedDate.reason}
+                            onChange={(e) => setNewBlockedDate(prev => ({ ...prev, reason: e.target.value }))}
+                            placeholder="e.g., Vacation, Conference, etc."
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setAddBlockedDateDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={handleAddBlockedDate} disabled={savingAvailability}>
+                          {savingAvailability && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                          Block Date
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </CardHeader>
+                <CardContent>
+                  {loadingAvailability ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : blockedDates.length === 0 ? (
+                    <div className="text-center py-8">
+                      <CalendarOff className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground">No blocked dates</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Block specific dates when you won't be available
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {blockedDates.map((blocked: any) => (
+                        <div
+                          key={blocked.id}
+                          className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                        >
+                          <div className="flex items-center gap-3">
+                            <CalendarOff className="h-4 w-4 text-destructive" />
+                            <div>
+                              <p className="text-sm font-medium">
+                                {new Date(blocked.blocked_date + 'T00:00:00').toLocaleDateString('en-US', {
+                                  weekday: 'short',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })}
+                              </p>
+                              {blocked.reason && (
+                                <p className="text-xs text-muted-foreground">{blocked.reason}</p>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteBlockedDate(blocked.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="about" className="space-y-4">

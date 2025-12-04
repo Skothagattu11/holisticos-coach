@@ -5,6 +5,7 @@ import {
   UserCog,
   Calendar,
   MessageSquare,
+  MessageCircle,
   Settings,
   FileText,
   LayoutTemplate,
@@ -14,6 +15,7 @@ import {
   Search,
   LogOut,
   Shield,
+  RefreshCw,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
@@ -31,6 +33,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { AuthUser } from "@/lib/services/authService";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -77,6 +82,12 @@ const navigationItems = [
     roles: ["admin", "coach"] as UserRole[]
   },
   {
+    path: "/messages",
+    label: "Messages",
+    icon: MessageCircle,
+    roles: ["admin", "coach"] as UserRole[]
+  },
+  {
     path: "/users",
     label: "User Management",
     icon: Shield,
@@ -98,6 +109,20 @@ const navigationItems = [
 
 export const AppLayout = ({ children, currentRole, currentUser, onSignOut }: AppLayoutProps) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { refreshAuth } = useAuth();
+  const queryClient = useQueryClient();
+  const { unreadCount } = useUnreadMessages();
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshAuth();
+      await queryClient.invalidateQueries();
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
 
   const visibleItems = navigationItems.filter(item =>
     item.roles.includes(currentRole)
@@ -132,11 +157,11 @@ export const AppLayout = ({ children, currentRole, currentUser, onSignOut }: App
   const displayName = currentUser?.name || currentUser?.email?.split("@")[0] || "User";
 
   return (
-    <div className="min-h-screen flex w-full bg-background">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-background">
+      {/* Sidebar - Fixed Position */}
       <aside
         className={cn(
-          "bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col",
+          "fixed top-0 left-0 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col z-40",
           collapsed ? "w-16" : "w-64"
         )}
       >
@@ -162,6 +187,7 @@ export const AppLayout = ({ children, currentRole, currentUser, onSignOut }: App
           <ul className="space-y-1 px-2">
             {visibleItems.map((item) => {
               const Icon = item.icon;
+              const showBadge = item.path === "/messages" && unreadCount > 0;
               return (
                 <li key={item.path}>
                   <NavLink
@@ -170,8 +196,22 @@ export const AppLayout = ({ children, currentRole, currentUser, onSignOut }: App
                     className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
                     activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                   >
-                    <Icon className="h-5 w-5 flex-shrink-0" />
-                    {!collapsed && <span>{item.label}</span>}
+                    <div className="relative">
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      {showBadge && collapsed && (
+                        <span className="absolute -top-1 -right-1 h-2 w-2 bg-destructive rounded-full" />
+                      )}
+                    </div>
+                    {!collapsed && (
+                      <span className="flex-1 flex items-center justify-between">
+                        <span>{item.label}</span>
+                        {showBadge && (
+                          <Badge variant="destructive" className="ml-2 h-5 min-w-[20px] flex items-center justify-center rounded-full px-1.5 text-xs">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                          </Badge>
+                        )}
+                      </span>
+                    )}
                   </NavLink>
                 </li>
               );
@@ -234,10 +274,19 @@ export const AppLayout = ({ children, currentRole, currentUser, onSignOut }: App
         </div>
       </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Bar */}
-        <header className="h-16 border-b border-border bg-card flex items-center justify-between px-6">
+      {/* Main Content - With margin for fixed sidebar */}
+      <div
+        className={cn(
+          "flex flex-col min-h-screen transition-all duration-300",
+          collapsed ? "ml-16" : "ml-64"
+        )}
+      >
+        {/* Top Bar - Fixed */}
+        <header
+          className={cn(
+            "h-16 border-b border-border bg-card flex items-center justify-between px-6 sticky top-0 z-30",
+          )}
+        >
           <div className="flex items-center gap-4 flex-1 max-w-2xl">
             <Search className="h-5 w-5 text-muted-foreground" />
             <Input
@@ -250,6 +299,15 @@ export const AppLayout = ({ children, currentRole, currentUser, onSignOut }: App
             <Badge className={cn("capitalize", getRoleColor(currentRole))}>
               {getRoleName(currentRole)}
             </Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              title="Refresh data"
+            >
+              <RefreshCw className={cn("h-5 w-5", isRefreshing && "animate-spin")} />
+            </Button>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
               <span className="absolute top-1 right-1 h-2 w-2 bg-destructive rounded-full" />
@@ -257,8 +315,8 @@ export const AppLayout = ({ children, currentRole, currentUser, onSignOut }: App
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        {/* Page Content - Scrollable */}
+        <main className="flex-1 p-6 overflow-auto">
           {children}
         </main>
       </div>

@@ -177,17 +177,47 @@ export const authService = {
   // Get user's role from user_roles table
   async getUserRole(userId: string): Promise<UserRole> {
     if (!isSupabaseConfigured() || !supabase) {
+      console.log('[AuthService] Supabase not configured, returning client role');
       return 'client';
     }
 
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .single();
+    console.log('[AuthService] Fetching role for user:', userId);
 
-    if (error || !data) return 'client';
-    return data.role as UserRole;
+    // Use Promise.race for reliable timeout
+    const fetchRole = async (): Promise<UserRole> => {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('[AuthService] Role fetch error:', error.message);
+        return 'client';
+      }
+
+      if (!data) {
+        console.log('[AuthService] No role found, defaulting to client');
+        return 'client';
+      }
+
+      console.log('[AuthService] Found role:', data.role);
+      return data.role as UserRole;
+    };
+
+    const timeout = new Promise<UserRole>((resolve) => {
+      setTimeout(() => {
+        console.warn('[AuthService] Role fetch timed out, defaulting to client');
+        resolve('client');
+      }, 1500);
+    });
+
+    try {
+      return await Promise.race([fetchRole(), timeout]);
+    } catch (err) {
+      console.error('[AuthService] getUserRole exception:', err);
+      return 'client';
+    }
   },
 
   // Subscribe to auth state changes

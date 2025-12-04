@@ -32,9 +32,10 @@ const fetchExpertsByIds = async (expertIds: string[]): Promise<Record<string, an
   if (!supabase || expertIds.length === 0) return {};
 
   try {
+    // Note: experts table doesn't have email column - email is in profiles table
     const { data, error } = await supabase
       .from('experts')
-      .select('id, name, email, photo_url')
+      .select('id, name, photo_url')
       .in('id', expertIds);
 
     if (error) {

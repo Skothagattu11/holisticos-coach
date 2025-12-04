@@ -2,3 +2,7 @@ export { coachService } from './coachService';
 export { clientService } from './clientService';
 export { questionnaireService } from './questionnaireService';
 export { authService } from './authService';
+export { messageService } from './messageService';
+export { healthDataService } from './healthDataService';
+export { emailAlertService } from './emailAlertService';
+export { alertGeneratorService } from './alertGeneratorService';

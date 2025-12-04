@@ -204,28 +204,69 @@ export const questionnaireService = {
       throw new Error('Supabase not configured');
     }
 
-    const { data, error } = await supabase
+    // Fetch questionnaire responses for this relationship
+    const { data: responses, error } = await supabase
       .from('questionnaire_responses')
-      .select(`
-        *,
-        template:template_id (*)
-      `)
+      .select('*')
       .eq('relationship_id', relationshipId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('[Questionnaire] Error fetching responses:', error);
+      throw error;
+    }
 
-    return (data || []).map(response => ({
-      id: response.id,
-      questionnaireId: response.template_id,
-      relationshipId: response.relationship_id,
-      clientId: response.relationship_id, // No direct user_id in questionnaire_responses
-      answers: response.responses || {},
-      submittedAt: response.submitted_at || response.created_at,
-      reviewedAt: response.reviewed_at,
-      expertNotes: response.expert_notes,
-      questionnaire: response.template ? transformQuestionnaire(response.template) : undefined,
-    }));
+    if (!responses || responses.length === 0) {
+      return [];
+    }
+
+    // Get unique template IDs and fetch templates separately
+    const templateIds = [...new Set(responses.map(r => r.template_id).filter(Boolean))];
+    console.log('[Questionnaire] Template IDs to fetch:', templateIds);
+
+    let templateMap: Record<string, any> = {};
+    if (templateIds.length > 0) {
+      const { data: templates, error: templateError } = await supabase
+        .from('questionnaire_templates')
+        .select('*')
+        .in('id', templateIds);
+
+      if (templateError) {
+        console.warn('[Questionnaire] Error fetching templates:', templateError);
+      } else {
+        console.log('[Questionnaire] Templates fetched:', templates);
+        (templates || []).forEach(t => {
+          templateMap[t.id] = t;
+        });
+      }
+    }
+
+    return responses.map(response => {
+      // Parse responses if it's a JSON string
+      let answers = response.responses || {};
+      if (typeof answers === 'string') {
+        try {
+          answers = JSON.parse(answers);
+        } catch (e) {
+          console.warn('[Questionnaire] Failed to parse responses:', e);
+          answers = {};
+        }
+      }
+
+      const template = templateMap[response.template_id];
+
+      return {
+        id: response.id,
+        questionnaireId: response.template_id,
+        relationshipId: response.relationship_id,
+        clientId: response.relationship_id,
+        answers,
+        submittedAt: response.submitted_at || response.created_at,
+        reviewedAt: response.reviewed_at,
+        expertNotes: response.expert_notes,
+        questionnaire: template ? transformQuestionnaire(template) : undefined,
+      };
+    });
   },
 
   // Fetch response by ID

@@ -256,3 +256,30 @@ export const useReorderPlanItems = () => {
     },
   });
 };
+
+// ==================== CONVENIENCE HOOKS ====================
+
+// Combined hook for common plan operations
+export const usePlans = (relationshipId: string | undefined) => {
+  const queryClient = useQueryClient();
+  const { data: plans, isLoading: isLoadingPlans, refetch: refetchPlans } = useClientPlans(relationshipId);
+  const { data: activePlan, isLoading: isLoadingActive, refetch: refetchActive } = useActivePlan(relationshipId);
+
+  const refetch = () => {
+    refetchPlans();
+    refetchActive();
+  };
+
+  return {
+    plans: plans || [],
+    activePlan,
+    isLoading: isLoadingPlans || isLoadingActive,
+    refetchPlans: refetch,
+    invalidatePlans: () => {
+      if (relationshipId) {
+        queryClient.invalidateQueries({ queryKey: planKeys.byRelationship(relationshipId) });
+        queryClient.invalidateQueries({ queryKey: planKeys.active(relationshipId) });
+      }
+    },
+  };
+};

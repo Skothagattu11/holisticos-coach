@@ -22,11 +22,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -47,8 +42,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  ChevronDown,
-  ChevronRight,
   Clock,
   Calendar,
   Loader2,
@@ -59,7 +52,6 @@ import {
   Brain,
   Target,
   Scale,
-  GripVertical,
   Save,
   RotateCcw,
   FileUp,
@@ -68,6 +60,7 @@ import {
   FileText,
   Check,
   AlertCircle,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -78,12 +71,15 @@ import {
   useUpdatePlan,
   useSetActivePlan,
   useDeletePlan,
+  planKeys,
 } from "@/hooks/usePlans";
+import { useQueryClient } from "@tanstack/react-query";
 import { planService } from "@/lib/services/planService";
 import type { CoachingPlan, CoachingPlanItem, PlanItemCategory, PlanItemFrequency } from "@/types";
 
 interface PlanTabProps {
   relationshipId: string;
+  onNavigateToAIRules?: () => void;
 }
 
 // Draft item for local state (can have temp IDs for new items)
@@ -110,7 +106,7 @@ const FREQUENCY_OPTIONS: { value: PlanItemFrequency; label: string }[] = [
   { value: "weekdays", label: "Weekdays (Mon-Fri)" },
 ];
 
-export const PlanTab = ({ relationshipId }: PlanTabProps) => {
+export const PlanTab = ({ relationshipId, onNavigateToAIRules }: PlanTabProps) => {
   // Dialog states
   const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
@@ -120,9 +116,6 @@ export const PlanTab = ({ relationshipId }: PlanTabProps) => {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 
   const [editingItem, setEditingItem] = useState<DraftPlanItem | null>(null);
-  const [expandedCategories, setExpandedCategories] = useState<Set<PlanItemCategory>>(
-    new Set(["nutrition", "fitness", "recovery", "mindfulness", "habits", "measurements"])
-  );
 
   // New plan form state
   const [newPlanTitle, setNewPlanTitle] = useState("");
@@ -149,6 +142,7 @@ export const PlanTab = ({ relationshipId }: PlanTabProps) => {
   const [isDraftMode, setIsDraftMode] = useState(false);
 
   // Queries
+  const queryClient = useQueryClient();
   const { data: activePlan, isLoading: loadingPlan } = useActivePlan(relationshipId);
   const { data: allPlans = [] } = useClientPlans(relationshipId);
 
@@ -193,16 +187,6 @@ export const PlanTab = ({ relationshipId }: PlanTabProps) => {
   const visibleDraftItems = useMemo(() => {
     return draftItems.filter(item => !item.isDeleted);
   }, [draftItems]);
-
-  const toggleCategory = (category: PlanItemCategory) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(category)) {
-      newExpanded.delete(category);
-    } else {
-      newExpanded.add(category);
-    }
-    setExpandedCategories(newExpanded);
-  };
 
   const handleCreatePlan = async () => {
     if (!newPlanTitle.trim()) {
@@ -350,10 +334,13 @@ export const PlanTab = ({ relationshipId }: PlanTabProps) => {
       }
 
       toast.success("All changes saved successfully!");
-      setIsDraftMode(false);
 
-      // Refresh the plan data
-      window.location.reload(); // Simple refresh to get updated data
+      // Refetch queries to get fresh data (refetchQueries waits for completion)
+      await queryClient.refetchQueries({ queryKey: planKeys.active(relationshipId) });
+      await queryClient.refetchQueries({ queryKey: planKeys.byRelationship(relationshipId) });
+
+      // Reset draft mode - the useEffect will reinitialize from fresh data
+      setIsDraftMode(false);
     } catch (error) {
       toast.error("Failed to save changes");
       console.error(error);
@@ -887,127 +874,117 @@ export const PlanTab = ({ relationshipId }: PlanTabProps) => {
         </div>
       )}
 
-      {/* Plan Items by Category */}
+      {/* Plan Items by Category - Grid Layout */}
       {activePlan && (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {(Object.entries(CATEGORY_CONFIG) as [PlanItemCategory, typeof CATEGORY_CONFIG[PlanItemCategory]][]).map(
             ([category, config]) => {
               const items = getItemsByCategory(category);
               const Icon = config.icon;
-              const isExpanded = expandedCategories.has(category);
 
               return (
-                <Collapsible
-                  key={category}
-                  open={isExpanded}
-                  onOpenChange={() => toggleCategory(category)}
-                >
-                  <Card>
-                    <CollapsibleTrigger asChild>
-                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <div className={cn("p-1.5 rounded-md", config.color)}>
-                              <Icon className="h-4 w-4" />
-                            </div>
-                            {config.label}
-                            <Badge variant="secondary" className="ml-2">
-                              {items.length}
-                            </Badge>
-                          </CardTitle>
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </div>
-                      </CardHeader>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <CardContent className="pt-0">
-                        {items.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-4">
-                            No {config.label.toLowerCase()} items yet
-                          </p>
-                        ) : (
-                          <div className="space-y-2">
-                            {items.map((item) => (
-                              <div
-                                key={item.id}
-                                className={cn(
-                                  "flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors group",
-                                  item.isNew && "border-success/50 bg-success/5",
-                                  item.isModified && "border-warning/50 bg-warning/5"
-                                )}
-                              >
-                                <GripVertical className="h-5 w-5 text-muted-foreground/50 mt-0.5 cursor-grab" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div>
-                                      <div className="flex items-center gap-2">
-                                        <p className="font-medium">{item.title}</p>
-                                        {item.isNew && (
-                                          <Badge variant="outline" className="text-xs text-success border-success">
-                                            New
-                                          </Badge>
-                                        )}
-                                        {item.isModified && (
-                                          <Badge variant="outline" className="text-xs text-warning border-warning">
-                                            Modified
-                                          </Badge>
-                                        )}
-                                      </div>
-                                      {item.description && (
-                                        <p className="text-sm text-muted-foreground mt-1">
-                                          {item.description}
-                                        </p>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        onClick={() => openEditItem(item)}
-                                      >
-                                        <Pencil className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-destructive hover:text-destructive"
-                                        onClick={() => handleDeleteItemFromDraft(item)}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                                    <Badge variant="outline" className="text-xs capitalize">
-                                      {item.frequency}
+                <Card key={category} className="flex flex-col">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <div className={cn("p-1.5 rounded-md", config.color)}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      {config.label}
+                      <Badge variant="secondary" className="ml-auto">
+                        {items.length}
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-1 pt-0">
+                    {items.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-6">
+                        No items yet
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                        {items.map((item) => (
+                          <div
+                            key={item.id}
+                            className={cn(
+                              "p-2.5 rounded-lg border bg-card hover:bg-muted/30 transition-colors group",
+                              item.isNew && "border-success/50 bg-success/5",
+                              item.isModified && "border-warning/50 bg-warning/5"
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="font-medium text-sm truncate">{item.title}</p>
+                                  {item.isNew && (
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0 text-success border-success">
+                                      New
                                     </Badge>
-                                    {item.scheduledTime && (
-                                      <span className="flex items-center gap-1">
-                                        <Clock className="h-3 w-3" />
-                                        {formatTime(item.scheduledTime)}
-                                      </span>
-                                    )}
-                                    {item.durationMinutes && (
-                                      <span className="flex items-center gap-1">
-                                        <Calendar className="h-3 w-3" />
-                                        {item.durationMinutes} min
-                                      </span>
-                                    )}
-                                  </div>
+                                  )}
+                                  {item.isModified && (
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0 text-warning border-warning">
+                                      Modified
+                                    </Badge>
+                                  )}
                                 </div>
+                                {item.description && (
+                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                    {item.description}
+                                  </p>
+                                )}
                               </div>
-                            ))}
+                              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                {onNavigateToAIRules && !item.isNew && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={onNavigateToAIRules}
+                                    title="Configure AI variations"
+                                  >
+                                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={() => openEditItem(item)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive hover:text-destructive"
+                                  onClick={() => handleDeleteItemFromDraft(item)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground">
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize">
+                                {item.frequency}
+                              </Badge>
+                              {item.scheduledTime && (
+                                <span className="flex items-center gap-0.5">
+                                  <Clock className="h-2.5 w-2.5" />
+                                  {formatTime(item.scheduledTime)}
+                                </span>
+                              )}
+                              {item.durationMinutes && (
+                                <span className="flex items-center gap-0.5">
+                                  <Calendar className="h-2.5 w-2.5" />
+                                  {item.durationMinutes}m
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </CardContent>
-                    </CollapsibleContent>
-                  </Card>
-                </Collapsible>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               );
             }
           )}

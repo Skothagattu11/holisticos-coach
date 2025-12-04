@@ -367,14 +367,122 @@ export interface WeeklyCheckin {
 }
 
 // Chat Message Types for Coach Dashboard
+export type MessageType = "text" | "image" | "file" | "system";
+export type SenderType = "user" | "expert";
+
 export interface ChatMessage {
   id: string;
   relationshipId: string;
   senderId: string;
+  senderType: SenderType;
   senderName?: string;
-  isCoach: boolean;
+  senderAvatar?: string;
   content: string;
+  messageType: MessageType;
+  attachmentUrl?: string;
   checkinId?: string;
-  sentAt: string;
+  isRead: boolean;
   readAt?: string;
+  sentAt: string;
+  createdAt: string;
+}
+
+export interface Conversation {
+  id: string; // relationship_id
+  clientId: string;
+  clientName: string;
+  clientAvatar?: string;
+  coachId: string;
+  coachName?: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  lastMessageSender?: SenderType;
+  unreadCount: number;
+  status: CoachingStatus;
+}
+
+// ==================== COACHING RULES ====================
+
+export type CoachingRuleType = "condition" | "preference" | "constraint";
+
+export interface CoachingRule {
+  id: string;
+  relationshipId: string;
+  ruleType: CoachingRuleType;
+  title: string;
+  description: string;
+  priority: number; // 0-10, higher = more important
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CoachingRuleCreate {
+  relationshipId: string;
+  ruleType: CoachingRuleType;
+  title: string;
+  description: string;
+  priority?: number;
+}
+
+// ==================== PLAN ITEM VARIATIONS ====================
+
+export interface PlanItemVariation {
+  title: string;
+  duration?: number;
+  description?: string;
+  intensity?: "low" | "medium" | "high";
+}
+
+export interface PlanItemVariations {
+  intense?: PlanItemVariation;
+  moderate?: PlanItemVariation;
+  light?: PlanItemVariation;
+  rest?: PlanItemVariation;
+  [key: string]: PlanItemVariation | undefined;
+}
+
+export interface CoachingPlanItemWithVariations extends CoachingPlanItem {
+  variations?: PlanItemVariations;
+  defaultVariation?: string;
+  aiAdjustable?: boolean;
+}
+
+// ==================== DAILY CHECK-INS ====================
+
+export type MoodType = "great" | "good" | "okay" | "low" | "stressed";
+export type ProtocolDifficulty = "too_easy" | "just_right" | "too_hard";
+
+export interface DailyCheckin {
+  id: string;
+  userId: string;
+  relationshipId?: string;
+  checkinDate: string;
+  dailyPlanId?: string;
+  tasksTotal: number;
+  tasksCompleted: number;
+  tasksSkipped: number;
+  completionRate?: number;
+  energyRating?: number;
+  mood?: MoodType;
+  stressLevel?: number;
+  wins?: string;
+  challenges?: string;
+  notes?: string;
+  protocolDifficulty?: ProtocolDifficulty;
+  submittedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WeeklyCheckinStats {
+  daysCheckedIn: number;
+  avgCompletionRate: number;
+  avgEnergy: number;
+  commonMood?: MoodType;
+  avgStress: number;
+  totalTasksCompleted: number;
+  difficultyFeedback: ProtocolDifficulty[];
+  wins: string[];
+  challenges: string[];
 }
