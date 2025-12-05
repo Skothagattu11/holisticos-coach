@@ -30,9 +30,7 @@ import {
   ChevronRight,
   XCircle,
   SkipForward,
-  StickyNote,
   Target,
-  CalendarPlus,
   CalendarRange,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
@@ -41,10 +39,8 @@ import { PlanTab } from "@/components/clients/PlanTab";
 import { CoachingRulesManager } from "@/components/clients/CoachingRulesManager";
 import { PlanItemVariationsEditor } from "@/components/clients/PlanItemVariationsEditor";
 import { HealthMetricsTab } from "@/components/clients/HealthMetricsTab";
-import { CoachNotesTab } from "@/components/clients/CoachNotesTab";
 import { ClientGoalsTab } from "@/components/clients/ClientGoalsTab";
-import { SessionSchedulingTab } from "@/components/clients/SessionSchedulingTab";
-import { WeeklyCheckinTab } from "@/components/clients/WeeklyCheckinTab";
+import { WeeklyReviewTab } from "@/components/clients/WeeklyReviewTab";
 import { useState, useEffect, useRef } from "react";
 import { CoachingStatus, QuestionnaireResponse } from "@/types";
 import { coachService } from "@/lib/services/coachService";
@@ -442,17 +438,9 @@ const ClientDetail = () => {
             <Target className="h-3 w-3 mr-1" />
             Goals
           </TabsTrigger>
-          <TabsTrigger value="notes">
-            <StickyNote className="h-3 w-3 mr-1" />
-            Notes
-          </TabsTrigger>
-          <TabsTrigger value="sessions">
-            <CalendarPlus className="h-3 w-3 mr-1" />
-            Sessions
-          </TabsTrigger>
-          <TabsTrigger value="weekly">
+          <TabsTrigger value="weekly-review">
             <CalendarRange className="h-3 w-3 mr-1" />
-            Weekly
+            Weekly Review
           </TabsTrigger>
         </TabsList>
 
@@ -674,10 +662,6 @@ const ClientDetail = () => {
             (() => {
               const dateStr = selectedDate.toISOString().split('T')[0];
               const selectedCheckIn = checkIns.find(c => c.checkin_date === dateStr);
-              const selectedDateQuestionnaireResponses = questionnaireResponses.filter((r: QuestionnaireResponse) => {
-                const responseDate = new Date(r.submittedAt || '').toISOString().split('T')[0];
-                return responseDate === dateStr;
-              });
 
               return (
                 <div className="grid gap-4 md:grid-cols-2">
@@ -787,65 +771,6 @@ const ClientDetail = () => {
                       )}
                     </CardContent>
                   </Card>
-
-                  {/* Questionnaire Responses for this date */}
-                  {selectedDateQuestionnaireResponses.length > 0 && (
-                    <Card className="md:col-span-2">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <FileQuestion className="h-5 w-5" />
-                          Questionnaire Submitted
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {selectedDateQuestionnaireResponses.map((response: QuestionnaireResponse) => (
-                          <div key={response.id} className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-medium">{response.questionnaire?.title || "Assessment"}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  Submitted at {new Date(response.submittedAt || '').toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                                </p>
-                              </div>
-                              <Badge variant="outline" className="gap-1">
-                                <CheckCircle2 className="h-3 w-3" />
-                                Completed
-                              </Badge>
-                            </div>
-                            <div className="space-y-3">
-                              {response.questionnaire?.questions.slice(0, 5).map((question, idx) => {
-                                const answer = response.answers[question.id];
-                                return (
-                                  <div key={question.id} className="border-b border-border pb-3 last:border-0 last:pb-0">
-                                    <p className="text-sm font-medium mb-1">{idx + 1}. {question.question}</p>
-                                    <div className="bg-muted/50 rounded-md p-2">
-                                      {answer !== undefined ? (
-                                        renderAnswer(question, answer)
-                                      ) : (
-                                        <span className="text-muted-foreground italic text-sm">No answer</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                              {response.questionnaire?.questions && response.questionnaire.questions.length > 5 && (
-                                <Button
-                                  variant="link"
-                                  className="text-sm p-0 h-auto"
-                                  onClick={() => {
-                                    const tabElement = document.querySelector('[value="questionnaire"]') as HTMLElement;
-                                    if (tabElement) tabElement.click();
-                                  }}
-                                >
-                                  View all {response.questionnaire.questions.length} questions →
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  )}
                 </div>
               );
             })()
@@ -1081,39 +1006,10 @@ const ClientDetail = () => {
           )}
         </TabsContent>
 
-        {/* Notes Tab */}
-        <TabsContent value="notes" className="space-y-4">
+        {/* Weekly Review Tab (Unified: Sessions + Notes + Feedback) */}
+        <TabsContent value="weekly-review" className="space-y-4">
           {clientId && relationship?.clientId ? (
-            <CoachNotesTab
-              relationshipId={clientId}
-              userId={relationship.clientId}
-              clientName={displayClient.name}
-            />
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>Loading client data...</p>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Sessions Tab */}
-        <TabsContent value="sessions" className="space-y-4">
-          {clientId ? (
-            <SessionSchedulingTab
-              relationshipId={clientId}
-              clientName={displayClient.name}
-            />
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>Loading client data...</p>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Weekly Check-in Tab */}
-        <TabsContent value="weekly" className="space-y-4">
-          {clientId && relationship?.clientId ? (
-            <WeeklyCheckinTab
+            <WeeklyReviewTab
               relationshipId={clientId}
               userId={relationship.clientId}
               clientName={displayClient.name}

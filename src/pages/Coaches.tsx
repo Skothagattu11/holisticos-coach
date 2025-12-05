@@ -17,6 +17,7 @@ import { useCoachQuestionnaires } from "@/hooks/useQuestionnaires";
 import { Users, Star, TrendingUp, Clock, CheckCircle2, Plus, Award, Loader2, RefreshCw, Search, ChevronRight, FileQuestion, Image, Pencil, User, ShieldCheck, UserCheck, Power, Check, ChevronDown, ChevronUp, CalendarClock, Trash2, X, CalendarOff } from "lucide-react";
 import { useCreateQuestionnaire } from "@/hooks/useQuestionnaires";
 import { coachService } from "@/lib/services/coachService";
+import { storageService } from "@/lib/services/storageService";
 import type { QuestionType } from "@/types";
 import type { CoachProfile, ExpertSpecialty, ClientWithStatus, CoachingStatus, Questionnaire } from "@/types";
 import { toast } from "sonner";
@@ -32,6 +33,109 @@ const SPECIALTIES: { value: ExpertSpecialty; label: string }[] = [
   { value: "hormones", label: "Hormones" },
   { value: "mental_health", label: "Mental Health" },
   { value: "recovery", label: "Recovery" },
+];
+
+// Common languages for coaches
+const LANGUAGES = [
+  "English",
+  "Spanish",
+  "French",
+  "German",
+  "Portuguese",
+  "Italian",
+  "Dutch",
+  "Russian",
+  "Chinese",
+  "Japanese",
+  "Korean",
+  "Arabic",
+  "Hindi",
+];
+
+// Countries with major cities
+const COUNTRIES_AND_CITIES: Record<string, string[]> = {
+  "United States": ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia", "San Antonio", "San Diego", "Dallas", "San Jose", "Austin", "Jacksonville", "Fort Worth", "San Francisco", "Seattle", "Denver", "Boston", "Miami", "Atlanta", "Nashville"],
+  "United Kingdom": ["London", "Birmingham", "Manchester", "Leeds", "Liverpool", "Bristol", "Glasgow", "Edinburgh", "Sheffield", "Cardiff"],
+  "Canada": ["Toronto", "Montreal", "Vancouver", "Calgary", "Edmonton", "Ottawa", "Winnipeg", "Quebec City"],
+  "Australia": ["Sydney", "Melbourne", "Brisbane", "Perth", "Adelaide", "Gold Coast"],
+  "Germany": ["Berlin", "Hamburg", "Munich", "Cologne", "Frankfurt", "Stuttgart", "Düsseldorf"],
+  "France": ["Paris", "Marseille", "Lyon", "Toulouse", "Nice", "Nantes", "Strasbourg"],
+  "Spain": ["Madrid", "Barcelona", "Valencia", "Seville", "Zaragoza", "Málaga", "Bilbao"],
+  "Italy": ["Rome", "Milan", "Naples", "Turin", "Palermo", "Genoa", "Bologna", "Florence"],
+  "Netherlands": ["Amsterdam", "Rotterdam", "The Hague", "Utrecht", "Eindhoven"],
+  "Switzerland": ["Zurich", "Geneva", "Basel", "Bern", "Lausanne"],
+  "Portugal": ["Lisbon", "Porto", "Braga", "Funchal"],
+  "Brazil": ["São Paulo", "Rio de Janeiro", "Brasília", "Salvador", "Fortaleza"],
+  "Mexico": ["Mexico City", "Guadalajara", "Monterrey", "Puebla", "Cancún"],
+  "India": ["Mumbai", "Delhi", "Bangalore", "Hyderabad", "Chennai", "Kolkata", "Pune"],
+  "Japan": ["Tokyo", "Osaka", "Kyoto", "Yokohama", "Nagoya", "Sapporo", "Fukuoka"],
+  "South Korea": ["Seoul", "Busan", "Incheon", "Daegu", "Daejeon"],
+  "China": ["Shanghai", "Beijing", "Shenzhen", "Guangzhou", "Chengdu", "Hangzhou"],
+  "Singapore": ["Singapore"],
+  "United Arab Emirates": ["Dubai", "Abu Dhabi", "Sharjah"],
+  "Saudi Arabia": ["Riyadh", "Jeddah", "Mecca", "Medina"],
+  "South Africa": ["Johannesburg", "Cape Town", "Durban", "Pretoria"],
+  "New Zealand": ["Auckland", "Wellington", "Christchurch", "Hamilton"],
+  "Ireland": ["Dublin", "Cork", "Galway", "Limerick"],
+  "Sweden": ["Stockholm", "Gothenburg", "Malmö", "Uppsala"],
+  "Norway": ["Oslo", "Bergen", "Trondheim", "Stavanger"],
+  "Denmark": ["Copenhagen", "Aarhus", "Odense"],
+  "Finland": ["Helsinki", "Espoo", "Tampere", "Turku"],
+  "Austria": ["Vienna", "Graz", "Linz", "Salzburg"],
+  "Belgium": ["Brussels", "Antwerp", "Ghent", "Bruges"],
+  "Poland": ["Warsaw", "Kraków", "Łódź", "Wrocław"],
+  "Czech Republic": ["Prague", "Brno", "Ostrava"],
+  "Greece": ["Athens", "Thessaloniki", "Patras"],
+  "Turkey": ["Istanbul", "Ankara", "Izmir", "Bursa"],
+  "Russia": ["Moscow", "Saint Petersburg", "Novosibirsk", "Yekaterinburg"],
+  "Argentina": ["Buenos Aires", "Córdoba", "Rosario", "Mendoza"],
+  "Colombia": ["Bogotá", "Medellín", "Cali", "Barranquilla"],
+  "Chile": ["Santiago", "Valparaíso", "Concepción"],
+  "Thailand": ["Bangkok", "Chiang Mai", "Phuket", "Pattaya"],
+  "Malaysia": ["Kuala Lumpur", "George Town", "Johor Bahru"],
+  "Indonesia": ["Jakarta", "Surabaya", "Bandung", "Bali"],
+  "Philippines": ["Manila", "Cebu City", "Davao City"],
+  "Vietnam": ["Ho Chi Minh City", "Hanoi", "Da Nang"],
+  "Israel": ["Tel Aviv", "Jerusalem", "Haifa"],
+  "Egypt": ["Cairo", "Alexandria", "Giza"],
+};
+
+const COUNTRY_LIST = Object.keys(COUNTRIES_AND_CITIES).sort();
+
+// Common timezones
+const TIMEZONES = [
+  { value: "America/New_York", label: "Eastern Time (US & Canada)" },
+  { value: "America/Chicago", label: "Central Time (US & Canada)" },
+  { value: "America/Denver", label: "Mountain Time (US & Canada)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (US & Canada)" },
+  { value: "America/Anchorage", label: "Alaska" },
+  { value: "Pacific/Honolulu", label: "Hawaii" },
+  { value: "America/Phoenix", label: "Arizona" },
+  { value: "America/Toronto", label: "Eastern Time (Canada)" },
+  { value: "America/Vancouver", label: "Pacific Time (Canada)" },
+  { value: "America/Mexico_City", label: "Mexico City" },
+  { value: "America/Sao_Paulo", label: "São Paulo" },
+  { value: "America/Buenos_Aires", label: "Buenos Aires" },
+  { value: "Europe/London", label: "London (GMT/BST)" },
+  { value: "Europe/Paris", label: "Paris (CET)" },
+  { value: "Europe/Berlin", label: "Berlin (CET)" },
+  { value: "Europe/Amsterdam", label: "Amsterdam (CET)" },
+  { value: "Europe/Madrid", label: "Madrid (CET)" },
+  { value: "Europe/Rome", label: "Rome (CET)" },
+  { value: "Europe/Zurich", label: "Zurich (CET)" },
+  { value: "Europe/Moscow", label: "Moscow" },
+  { value: "Europe/Istanbul", label: "Istanbul" },
+  { value: "Asia/Dubai", label: "Dubai" },
+  { value: "Asia/Kolkata", label: "India (IST)" },
+  { value: "Asia/Singapore", label: "Singapore" },
+  { value: "Asia/Hong_Kong", label: "Hong Kong" },
+  { value: "Asia/Shanghai", label: "Shanghai (CST)" },
+  { value: "Asia/Tokyo", label: "Tokyo (JST)" },
+  { value: "Asia/Seoul", label: "Seoul" },
+  { value: "Australia/Sydney", label: "Sydney (AEST)" },
+  { value: "Australia/Melbourne", label: "Melbourne (AEST)" },
+  { value: "Australia/Perth", label: "Perth (AWST)" },
+  { value: "Pacific/Auckland", label: "Auckland (NZST)" },
 ];
 
 // Predefined questionnaire templates
@@ -137,8 +241,12 @@ const Coaches = ({ currentRole = "admin", currentCoachId }: CoachesProps) => {
   const [editHourlyRate, setEditHourlyRate] = useState<number>(0);
   const [editYearsExperience, setEditYearsExperience] = useState<number>(0);
   const [editTimezone, setEditTimezone] = useState("");
-  const [editLocation, setEditLocation] = useState("");
-  const [editLanguage, setEditLanguage] = useState("");
+  const [editCountry, setEditCountry] = useState("");
+  const [editCity, setEditCity] = useState("");
+  const [editLanguages, setEditLanguages] = useState<string[]>([]);
+  const [customSpecialties, setCustomSpecialties] = useState<string[]>([]);
+  const [newCustomSpecialty, setNewCustomSpecialty] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Availability state
   const [availabilitySlots, setAvailabilitySlots] = useState<any[]>([]);
@@ -350,12 +458,31 @@ const Coaches = ({ currentRole = "admin", currentCoachId }: CoachesProps) => {
     if (selectedCoach) {
       setEditBio(selectedCoach.bio || "");
       setEditPhotoUrl(selectedCoach.photo || "");
-      setEditSpecialties(selectedCoach.specialties || []);
+
+      // Separate predefined and custom specialties
+      const predefinedSpecialtyKeys = SPECIALTIES.map(s => s.value);
+      const allSpecialties = selectedCoach.specialties || [];
+      const predefined = allSpecialties.filter(s => predefinedSpecialtyKeys.includes(s as ExpertSpecialty));
+      const custom = allSpecialties.filter(s => !predefinedSpecialtyKeys.includes(s as ExpertSpecialty));
+      setEditSpecialties(predefined);
+      setCustomSpecialties(custom as string[]);
+
       setEditHourlyRate(selectedCoach.hourlyRate || 0);
       setEditYearsExperience(selectedCoach.yearsExperience || 0);
       setEditTimezone(selectedCoach.timezone || "");
-      setEditLocation(selectedCoach.location || "");
-      setEditLanguage(selectedCoach.language || "");
+
+      // Parse location (format: "City, Country")
+      const location = selectedCoach.location || "";
+      const locationParts = location.split(", ");
+      if (locationParts.length === 2) {
+        setEditCity(locationParts[0]);
+        setEditCountry(locationParts[1]);
+      } else {
+        setEditCity("");
+        setEditCountry("");
+      }
+
+      setEditLanguages(selectedCoach.languages || []);
       setIsEditingAbout(true);
     }
   };
@@ -365,11 +492,14 @@ const Coaches = ({ currentRole = "admin", currentCoachId }: CoachesProps) => {
     setEditBio("");
     setEditPhotoUrl("");
     setEditSpecialties([]);
+    setCustomSpecialties([]);
+    setNewCustomSpecialty("");
     setEditHourlyRate(0);
     setEditYearsExperience(0);
     setEditTimezone("");
-    setEditLocation("");
-    setEditLanguage("");
+    setEditCountry("");
+    setEditCity("");
+    setEditLanguages([]);
   };
 
   const toggleEditSpecialty = (specialty: ExpertSpecialty) => {
@@ -380,10 +510,69 @@ const Coaches = ({ currentRole = "admin", currentCoachId }: CoachesProps) => {
     );
   };
 
+  const toggleEditLanguage = (language: string) => {
+    setEditLanguages(prev =>
+      prev.includes(language)
+        ? prev.filter(l => l !== language)
+        : [...prev, language]
+    );
+  };
+
+  const handleAddCustomSpecialty = () => {
+    const trimmed = newCustomSpecialty.trim().toLowerCase().replace(/\s+/g, '_');
+    if (!trimmed) return;
+
+    // Check if it already exists (either predefined or custom)
+    const predefinedKeys = SPECIALTIES.map(s => s.value);
+    if (predefinedKeys.includes(trimmed as ExpertSpecialty) || customSpecialties.includes(trimmed)) {
+      toast.error('This specialty already exists');
+      return;
+    }
+
+    setCustomSpecialties(prev => [...prev, trimmed]);
+    setNewCustomSpecialty('');
+  };
+
+  const handleRemoveCustomSpecialty = (specialty: string) => {
+    setCustomSpecialties(prev => prev.filter(s => s !== specialty));
+  };
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedCoachId) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB');
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const url = await storageService.uploadProfileImage(file, selectedCoachId);
+      setEditPhotoUrl(url);
+      toast.success('Photo uploaded successfully');
+    } catch (err) {
+      console.error('Error uploading photo:', err);
+      toast.error('Failed to upload photo');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const handleSaveAbout = async () => {
     if (!selectedCoachId) return;
 
     try {
+      // Combine city and country into location
+      const location = editCity && editCountry ? `${editCity}, ${editCountry}` : "";
+
       // Update coach profile
       await updateCoachMutation.mutateAsync({
         coachId: selectedCoachId,
@@ -393,15 +582,16 @@ const Coaches = ({ currentRole = "admin", currentCoachId }: CoachesProps) => {
           hourlyRate: editHourlyRate,
           yearsExperience: editYearsExperience,
           timezone: editTimezone,
-          location: editLocation,
-          language: editLanguage,
+          location: location,
+          languages: editLanguages,
         },
       });
 
-      // Update specialties separately
+      // Update specialties separately - combine predefined and custom specialties
+      const allSpecialties = [...editSpecialties, ...customSpecialties];
       await updateSpecialtiesMutation.mutateAsync({
         coachId: selectedCoachId,
-        specialties: editSpecialties,
+        specialties: allSpecialties,
       });
 
       toast.success("Profile updated successfully");
@@ -1433,25 +1623,65 @@ const Coaches = ({ currentRole = "admin", currentCoachId }: CoachesProps) => {
               <CardContent className="space-y-6">
                 {isEditingAbout ? (
                   <div className="space-y-6">
-                    {/* Photo URL */}
+                    {/* Photo Upload */}
                     <div className="space-y-2">
-                      <Label htmlFor="photo-url">Photo URL</Label>
+                      <Label>Profile Photo</Label>
                       <div className="flex items-start gap-4">
-                        <Avatar className="h-20 w-20">
-                          {editPhotoUrl && <AvatarImage src={editPhotoUrl} alt="Preview" />}
-                          <AvatarFallback className="text-2xl">
-                            <User className="h-8 w-8" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <Input
-                            id="photo-url"
-                            value={editPhotoUrl}
-                            onChange={(e) => setEditPhotoUrl(e.target.value)}
-                            placeholder="https://example.com/photo.jpg"
-                          />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Enter a URL for the profile photo
+                        <div className="relative">
+                          <Avatar className="h-24 w-24 border-2 border-border">
+                            {editPhotoUrl && <AvatarImage src={editPhotoUrl} alt="Preview" />}
+                            <AvatarFallback className="text-2xl bg-muted">
+                              <User className="h-10 w-10 text-muted-foreground" />
+                            </AvatarFallback>
+                          </Avatar>
+                          {uploadingPhoto && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+                              <Loader2 className="h-6 w-6 animate-spin text-white" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="relative"
+                              disabled={uploadingPhoto}
+                            >
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handlePhotoUpload}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                disabled={uploadingPhoto}
+                              />
+                              {uploadingPhoto ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Uploading...
+                                </>
+                              ) : (
+                                <>
+                                  <Image className="h-4 w-4 mr-2" />
+                                  Upload Photo
+                                </>
+                              )}
+                            </Button>
+                            {editPhotoUrl && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEditPhotoUrl("")}
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Remove
+                              </Button>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Upload a profile photo (max 5MB). Supported: JPG, PNG, GIF, WebP
                           </p>
                         </div>
                       </div>
@@ -1470,22 +1700,67 @@ const Coaches = ({ currentRole = "admin", currentCoachId }: CoachesProps) => {
                     </div>
 
                     {/* Specialties */}
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <Label>Specialties</Label>
                       <div className="flex flex-wrap gap-2">
                         {SPECIALTIES.map((specialty) => (
                           <Badge
                             key={specialty.value}
                             variant={editSpecialties.includes(specialty.value) ? "default" : "outline"}
-                            className="cursor-pointer"
+                            className="cursor-pointer hover:opacity-80"
                             onClick={() => toggleEditSpecialty(specialty.value)}
                           >
+                            {editSpecialties.includes(specialty.value) && <Check className="h-3 w-3 mr-1" />}
                             {specialty.label}
                           </Badge>
                         ))}
                       </div>
+
+                      {/* Custom Specialties */}
+                      {customSpecialties.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-2 border-t">
+                          <span className="text-xs text-muted-foreground w-full">Custom Specialties:</span>
+                          {customSpecialties.map((specialty) => (
+                            <Badge
+                              key={specialty}
+                              variant="secondary"
+                              className="cursor-pointer hover:bg-destructive/20"
+                              onClick={() => handleRemoveCustomSpecialty(specialty)}
+                            >
+                              {specialty.replace(/_/g, ' ')}
+                              <X className="h-3 w-3 ml-1" />
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add Custom Specialty */}
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          placeholder="Add custom specialty..."
+                          value={newCustomSpecialty}
+                          onChange={(e) => setNewCustomSpecialty(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddCustomSpecialty();
+                            }
+                          }}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleAddCustomSpecialty}
+                          disabled={!newCustomSpecialty.trim()}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add
+                        </Button>
+                      </div>
                       <p className="text-xs text-muted-foreground">
-                        Click to toggle specialties
+                        Click predefined specialties to toggle, or add custom ones
                       </p>
                     </div>
 
@@ -1513,34 +1788,86 @@ const Coaches = ({ currentRole = "admin", currentCoachId }: CoachesProps) => {
                       </div>
                     </div>
 
-                    {/* Location, Timezone & Language */}
-                    <div className="grid grid-cols-3 gap-4">
+                    {/* Location (Country/City), Timezone & Language */}
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="location">Location</Label>
-                        <Input
-                          id="location"
-                          value={editLocation}
-                          onChange={(e) => setEditLocation(e.target.value)}
-                          placeholder="New York, USA"
-                        />
+                        <Label>Country</Label>
+                        <Select
+                          value={editCountry}
+                          onValueChange={(value) => {
+                            setEditCountry(value);
+                            setEditCity(""); // Reset city when country changes
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select country" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px]">
+                            {COUNTRY_LIST.map((country) => (
+                              <SelectItem key={country} value={country}>
+                                {country}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="timezone">Timezone</Label>
-                        <Input
-                          id="timezone"
+                        <Label>City</Label>
+                        <Select
+                          value={editCity}
+                          onValueChange={setEditCity}
+                          disabled={!editCountry}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={editCountry ? "Select city" : "Select country first"} />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px]">
+                            {editCountry && COUNTRIES_AND_CITIES[editCountry]?.map((city) => (
+                              <SelectItem key={city} value={city}>
+                                {city}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Timezone</Label>
+                        <Select
                           value={editTimezone}
-                          onChange={(e) => setEditTimezone(e.target.value)}
-                          placeholder="America/New_York"
-                        />
+                          onValueChange={setEditTimezone}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select timezone" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px]">
+                            {TIMEZONES.map((tz) => (
+                              <SelectItem key={tz.value} value={tz.value}>
+                                {tz.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="language">Language</Label>
-                        <Input
-                          id="language"
-                          value={editLanguage}
-                          onChange={(e) => setEditLanguage(e.target.value)}
-                          placeholder="English"
-                        />
+                      <div className="space-y-2 col-span-2">
+                        <Label>Languages (click to select)</Label>
+                        <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-muted/30 min-h-[60px]">
+                          {LANGUAGES.map(lang => (
+                            <Badge
+                              key={lang}
+                              variant={editLanguages.includes(lang) ? "default" : "outline"}
+                              className="cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => toggleEditLanguage(lang)}
+                            >
+                              {editLanguages.includes(lang) && <Check className="h-3 w-3 mr-1" />}
+                              {lang}
+                            </Badge>
+                          ))}
+                        </div>
+                        {editLanguages.length > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Selected: {editLanguages.join(", ")}
+                          </p>
+                        )}
                       </div>
                     </div>
 

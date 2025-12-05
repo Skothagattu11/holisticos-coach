@@ -286,7 +286,7 @@ export interface CoachProfile extends Coach {
   yearsExperience?: number;
   timezone?: string;
   location?: string;
-  language?: string;
+  languages?: string[];  // Changed to plural array to match DB schema
   isVerified?: boolean;
   isAcceptingClients?: boolean;
 }

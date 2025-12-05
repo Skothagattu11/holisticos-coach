@@ -250,44 +250,34 @@ export const authService = {
       throw new Error('Supabase not configured');
     }
 
-    // Check if expert profile already exists with this ID
-    const { data: existingById } = await supabase
+    // Check if expert profile already exists for this user
+    const { data: existingByUserId } = await supabase
       .from('experts')
       .select('id')
-      .eq('id', userId)
+      .eq('user_id', userId)
       .maybeSingle();
 
-    if (existingById) {
-      console.log('Expert profile already exists for user ID:', userId);
+    if (existingByUserId) {
+      console.log('Expert profile already exists for user_id:', userId);
       return;
     }
 
-    // Try to insert with explicit ID (if table allows it)
+    // Insert new expert profile with user_id linked
     try {
       const { error: insertError } = await supabase
         .from('experts')
         .insert({
-          id: userId,
+          user_id: userId,  // IMPORTANT: Link expert to user account
           name,
           is_active: true,
         });
 
       if (insertError) {
-        // If explicit ID insertion fails, try without ID
-        console.warn('Could not insert with explicit ID, trying auto-generated ID:', insertError.message);
-
-        const { error: fallbackError } = await supabase
-          .from('experts')
-          .insert({
-            name,
-            is_active: true,
-          });
-
-        if (fallbackError) {
-          console.error('Error creating expert profile:', fallbackError);
-          throw fallbackError;
-        }
+        console.error('Error creating expert profile:', insertError);
+        throw insertError;
       }
+
+      console.log('Expert profile created successfully for user_id:', userId);
     } catch (err) {
       console.error('Exception creating expert profile:', err);
       throw err;

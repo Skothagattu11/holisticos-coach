@@ -88,6 +88,12 @@ const navigationItems = [
     roles: ["admin", "coach"] as UserRole[]
   },
   {
+    path: "/calendar",
+    label: "Calendar",
+    icon: Calendar,
+    roles: ["admin", "coach"] as UserRole[]
+  },
+  {
     path: "/users",
     label: "User Management",
     icon: Shield,

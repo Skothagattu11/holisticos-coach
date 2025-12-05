@@ -77,7 +77,7 @@ export const useUpdateCoach = () => {
         isActive?: boolean;
         timezone?: string;
         location?: string;
-        language?: string;
+        languages?: string[];  // Changed to plural array to match DB schema
         isVerified?: boolean;
         isAcceptingClients?: boolean;
       };
@@ -127,7 +127,7 @@ export const useUpdateSpecialties = () => {
   return useMutation({
     mutationFn: ({ coachId, specialties }: {
       coachId: string;
-      specialties: ExpertSpecialty[];
+      specialties: string[];  // Accepts both predefined ExpertSpecialty and custom string specialties
     }) => coachService.updateSpecialties(coachId, specialties),
     onSuccess: (_, { coachId }) => {
       queryClient.invalidateQueries({ queryKey: ['coaches'] });

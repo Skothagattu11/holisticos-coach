@@ -6,3 +6,4 @@ export { messageService } from './messageService';
 export { healthDataService } from './healthDataService';
 export { emailAlertService } from './emailAlertService';
 export { alertGeneratorService } from './alertGeneratorService';
+export { calendarService } from './calendarService';

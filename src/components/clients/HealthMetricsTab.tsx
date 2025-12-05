@@ -865,12 +865,14 @@ export const HealthMetricsTab = ({ clientId, userId }: HealthMetricsTabProps) =>
                           <Moon className="h-5 w-5 text-blue-500" />
                           Sleep Details
                         </CardTitle>
-                        <CardDescription>
-                          {new Date(filteredSleep.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                          {' → '}
-                          {new Date(filteredSleep.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                          {filteredSleep.nap && <Badge variant="outline" className="ml-2 text-xs">Nap</Badge>}
-                        </CardDescription>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span>
+                            {new Date(filteredSleep.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                            {' → '}
+                            {new Date(filteredSleep.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                          </span>
+                          {filteredSleep.nap && <Badge variant="outline" className="text-xs">Nap</Badge>}
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         {/* Sleep Stages */}
@@ -1013,16 +1015,18 @@ export const HealthMetricsTab = ({ clientId, userId }: HealthMetricsTabProps) =>
                           <Flame className="h-5 w-5 text-orange-500" />
                           Strain & Activity Details
                         </CardTitle>
-                        <CardDescription>
-                          {new Date(filteredCycle.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                          {filteredCycle.end && (
-                            <>
-                              {' → '}
-                              {new Date(filteredCycle.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                            </>
-                          )}
-                          {!filteredCycle.end && <Badge variant="outline" className="ml-2 text-xs text-green-500">Active</Badge>}
-                        </CardDescription>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span>
+                            {new Date(filteredCycle.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                            {filteredCycle.end && (
+                              <>
+                                {' → '}
+                                {new Date(filteredCycle.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                              </>
+                            )}
+                          </span>
+                          {!filteredCycle.end && <Badge variant="outline" className="text-xs text-green-500">Active</Badge>}
+                        </div>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         {/* Strain Metrics */}

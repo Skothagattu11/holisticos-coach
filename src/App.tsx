@@ -16,6 +16,7 @@ import Templates from "./pages/Templates";
 import Login from "./pages/Login";
 import Users from "./pages/Users";
 import Messages from "./pages/Messages";
+import Calendar from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -117,6 +118,11 @@ const AppContent = () => {
         <Route path="/messages" element={
           <ProtectedRoute requiredRole="coach">
             <Messages />
+          </ProtectedRoute>
+        } />
+        <Route path="/calendar" element={
+          <ProtectedRoute requiredRole="coach">
+            <Calendar />
           </ProtectedRoute>
         } />
         <Route path="/users" element={

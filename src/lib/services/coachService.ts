@@ -36,7 +36,7 @@ const transformCoachProfile = (data: any): CoachProfile => {
     yearsExperience: data.years_experience,
     timezone: data.timezone,
     location: data.location,
-    language: data.language,
+    languages: data.languages || ['English'],  // DB column is languages (TEXT[])
     isVerified: data.is_verified,
     isAcceptingClients: data.is_accepting_clients,
   };
@@ -225,7 +225,7 @@ export const coachService = {
     isActive?: boolean;
     timezone?: string;
     location?: string;
-    language?: string;
+    languages?: string[];  // Changed to plural array to match DB schema
     isVerified?: boolean;
     isAcceptingClients?: boolean;
   }): Promise<CoachProfile> {
@@ -233,22 +233,26 @@ export const coachService = {
       throw new Error('Supabase not configured');
     }
 
+    // Only include defined fields in the update object
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.bio !== undefined) updateData.bio = updates.bio;
+    if (updates.photoUrl !== undefined) updateData.photo_url = updates.photoUrl;
+    if (updates.hourlyRate !== undefined) updateData.hourly_rate = updates.hourlyRate;
+    if (updates.yearsExperience !== undefined) updateData.years_experience = updates.yearsExperience;
+    if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
+    if (updates.timezone !== undefined) updateData.timezone = updates.timezone;
+    if (updates.location !== undefined) updateData.location = updates.location;
+    if (updates.languages !== undefined) updateData.languages = updates.languages;
+    if (updates.isVerified !== undefined) updateData.is_verified = updates.isVerified;
+    if (updates.isAcceptingClients !== undefined) updateData.is_accepting_clients = updates.isAcceptingClients;
+
     const { error } = await supabase
       .from('experts')
-      .update({
-        name: updates.name,
-        bio: updates.bio,
-        photo_url: updates.photoUrl,
-        hourly_rate: updates.hourlyRate,
-        years_experience: updates.yearsExperience,
-        is_active: updates.isActive,
-        timezone: updates.timezone,
-        location: updates.location,
-        language: updates.language,
-        is_verified: updates.isVerified,
-        is_accepting_clients: updates.isAcceptingClients,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', coachId);
 
     if (error) throw error;
@@ -307,8 +311,8 @@ export const coachService = {
     if (error) throw error;
   },
 
-  // Update coach specialties
-  async updateSpecialties(coachId: string, specialties: ExpertSpecialty[]): Promise<void> {
+  // Update coach specialties - accepts both predefined ExpertSpecialty and custom string specialties
+  async updateSpecialties(coachId: string, specialties: string[]): Promise<void> {
     if (!isSupabaseConfigured() || !supabase) {
       throw new Error('Supabase not configured');
     }
@@ -834,6 +838,50 @@ export const coachService = {
       if (error) {
         console.warn('[coachService] Error fetching daily plan:', error);
         return null;
+      }
+
+      // Parse JSON fields that are stored as strings
+      if (data) {
+        // Parse agent1_response (main AI analysis data)
+        if (data.agent1_response && typeof data.agent1_response === 'string') {
+          try {
+            data.agent1_response = JSON.parse(data.agent1_response);
+          } catch (e) {
+            console.warn('[coachService] Failed to parse agent1_response:', e);
+          }
+        }
+        // Parse tasks array
+        if (data.tasks && typeof data.tasks === 'string') {
+          try {
+            data.tasks = JSON.parse(data.tasks);
+          } catch (e) {
+            console.warn('[coachService] Failed to parse tasks:', e);
+          }
+        }
+        // Parse gaps_analysis
+        if (data.gaps_analysis && typeof data.gaps_analysis === 'string') {
+          try {
+            data.gaps_analysis = JSON.parse(data.gaps_analysis);
+          } catch (e) {
+            console.warn('[coachService] Failed to parse gaps_analysis:', e);
+          }
+        }
+        // Parse rules_applied
+        if (data.rules_applied && typeof data.rules_applied === 'string') {
+          try {
+            data.rules_applied = JSON.parse(data.rules_applied);
+          } catch (e) {
+            console.warn('[coachService] Failed to parse rules_applied:', e);
+          }
+        }
+        // Parse variations_selected
+        if (data.variations_selected && typeof data.variations_selected === 'string') {
+          try {
+            data.variations_selected = JSON.parse(data.variations_selected);
+          } catch (e) {
+            console.warn('[coachService] Failed to parse variations_selected:', e);
+          }
+        }
       }
 
       return data;
@@ -1924,7 +1972,7 @@ export const coachService = {
   },
 
   // ============================================
-  // WEEKLY CHECK-INS
+  // WEEKLY REVIEWS (Unified: Sessions + Notes + Feedback)
   // ============================================
 
   // Helper to get ISO week string (YYYY-WW)
@@ -1951,77 +1999,80 @@ export const coachService = {
     return new Date(start.getTime() + 6 * 24 * 60 * 60 * 1000);
   },
 
-  // Fetch weekly check-ins for a client
-  async fetchWeeklyCheckins(relationshipId: string, limit: number = 12): Promise<any[]> {
+  // Fetch weekly reviews for a client
+  async fetchWeeklyReviews(relationshipId: string, limit: number = 12): Promise<any[]> {
     if (!isSupabaseConfigured() || !supabase) {
       return [];
     }
 
     try {
       const { data, error } = await supabase
-        .from('weekly_checkins')
+        .from('weekly_reviews')
         .select('*')
         .eq('relationship_id', relationshipId)
         .order('week_start_date', { ascending: false })
         .limit(limit);
 
       if (error) {
-        console.warn('Error fetching weekly check-ins:', error);
+        console.warn('Error fetching weekly reviews:', error);
         return [];
       }
 
       return data || [];
     } catch (err) {
-      console.warn('Error fetching weekly check-ins:', err);
+      console.warn('Error fetching weekly reviews:', err);
       return [];
     }
   },
 
-  // Fetch a specific weekly check-in
-  async fetchWeeklyCheckin(relationshipId: string, weekNumber: string): Promise<any | null> {
+  // Fetch a specific weekly review
+  async fetchWeeklyReview(relationshipId: string, weekNumber: string): Promise<any | null> {
     if (!isSupabaseConfigured() || !supabase) {
       return null;
     }
 
     try {
       const { data, error } = await supabase
-        .from('weekly_checkins')
+        .from('weekly_reviews')
         .select('*')
         .eq('relationship_id', relationshipId)
         .eq('week_number', weekNumber)
         .maybeSingle();
 
       if (error) {
-        console.warn('Error fetching weekly check-in:', error);
+        console.warn('Error fetching weekly review:', error);
         return null;
       }
 
       return data;
     } catch (err) {
-      console.warn('Error fetching weekly check-in:', err);
+      console.warn('Error fetching weekly review:', err);
       return null;
     }
   },
 
-  // Create or update a weekly check-in
-  async upsertWeeklyCheckin(checkin: {
+  // Create or update a weekly review (unified: session + notes + feedback)
+  async upsertWeeklyReview(review: {
     relationshipId: string;
-    userId: string;
     expertId: string;
     weekNumber: string;
     weekStartDate: string;
     weekEndDate: string;
+    // Session info (optional)
+    sessionScheduled?: boolean;
+    sessionDate?: string;
+    sessionDurationMinutes?: number;
+    sessionCompleted?: boolean;
+    sessionNotes?: string;
+    meetingUrl?: string;
+    // Feedback (shown to user)
     summary?: string;
     highlights?: string;
-    areasForImprovement?: string;
-    focusForNextWeek?: string;
-    coachNotes?: string;
-    avgEnergy?: number;
-    avgMood?: number;
-    avgStress?: number;
-    taskCompletionRate?: number;
-    checkinCount?: number;
-    isSharedWithUser?: boolean;
+    areasToImprove?: string;
+    focusNextWeek?: string;
+    // Private notes (NOT shown to user)
+    privateNotes?: string;
+    // Status
     status?: 'draft' | 'published';
   }): Promise<any> {
     if (!isSupabaseConfigured() || !supabase) {
@@ -2029,36 +2080,42 @@ export const coachService = {
     }
 
     const upsertData: any = {
-      relationship_id: checkin.relationshipId,
-      user_id: checkin.userId,
-      expert_id: checkin.expertId,
-      week_number: checkin.weekNumber,
-      week_start_date: checkin.weekStartDate,
-      week_end_date: checkin.weekEndDate,
+      relationship_id: review.relationshipId,
+      expert_id: review.expertId,
+      week_number: review.weekNumber,
+      week_start_date: review.weekStartDate,
+      week_end_date: review.weekEndDate,
       updated_at: new Date().toISOString(),
     };
 
-    if (checkin.summary !== undefined) upsertData.summary = checkin.summary;
-    if (checkin.highlights !== undefined) upsertData.highlights = checkin.highlights;
-    if (checkin.areasForImprovement !== undefined) upsertData.areas_for_improvement = checkin.areasForImprovement;
-    if (checkin.focusForNextWeek !== undefined) upsertData.focus_for_next_week = checkin.focusForNextWeek;
-    if (checkin.coachNotes !== undefined) upsertData.coach_notes = checkin.coachNotes;
-    if (checkin.avgEnergy !== undefined) upsertData.avg_energy = checkin.avgEnergy;
-    if (checkin.avgMood !== undefined) upsertData.avg_mood = checkin.avgMood;
-    if (checkin.avgStress !== undefined) upsertData.avg_stress = checkin.avgStress;
-    if (checkin.taskCompletionRate !== undefined) upsertData.task_completion_rate = checkin.taskCompletionRate;
-    if (checkin.checkinCount !== undefined) upsertData.checkin_count = checkin.checkinCount;
-    if (checkin.isSharedWithUser !== undefined) upsertData.is_shared_with_user = checkin.isSharedWithUser;
-    if (checkin.status !== undefined) {
-      upsertData.status = checkin.status;
-      if (checkin.status === 'published') {
+    // Session fields
+    if (review.sessionScheduled !== undefined) upsertData.session_scheduled = review.sessionScheduled;
+    if (review.sessionDate !== undefined) upsertData.session_date = review.sessionDate;
+    if (review.sessionDurationMinutes !== undefined) upsertData.session_duration_minutes = review.sessionDurationMinutes;
+    if (review.sessionCompleted !== undefined) upsertData.session_completed = review.sessionCompleted;
+    if (review.sessionNotes !== undefined) upsertData.session_notes = review.sessionNotes;
+    if (review.meetingUrl !== undefined) upsertData.meeting_url = review.meetingUrl;
+
+    // Feedback fields
+    if (review.summary !== undefined) upsertData.summary = review.summary;
+    if (review.highlights !== undefined) upsertData.highlights = review.highlights;
+    if (review.areasToImprove !== undefined) upsertData.areas_to_improve = review.areasToImprove;
+    if (review.focusNextWeek !== undefined) upsertData.focus_next_week = review.focusNextWeek;
+
+    // Private notes
+    if (review.privateNotes !== undefined) upsertData.private_notes = review.privateNotes;
+
+    // Status
+    if (review.status !== undefined) {
+      upsertData.status = review.status;
+      upsertData.is_published = review.status === 'published';
+      if (review.status === 'published') {
         upsertData.published_at = new Date().toISOString();
-        upsertData.shared_at = new Date().toISOString();
       }
     }
 
     const { data, error } = await supabase
-      .from('weekly_checkins')
+      .from('weekly_reviews')
       .upsert(upsertData, {
         onConflict: 'relationship_id,week_number',
       })
@@ -2069,22 +2126,21 @@ export const coachService = {
     return data;
   },
 
-  // Publish a weekly check-in (make visible to user)
-  async publishWeeklyCheckin(checkinId: string): Promise<any> {
+  // Publish a weekly review
+  async publishWeeklyReview(reviewId: string): Promise<any> {
     if (!isSupabaseConfigured() || !supabase) {
       throw new Error('Supabase not configured');
     }
 
     const { data, error } = await supabase
-      .from('weekly_checkins')
+      .from('weekly_reviews')
       .update({
         status: 'published',
-        is_shared_with_user: true,
+        is_published: true,
         published_at: new Date().toISOString(),
-        shared_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', checkinId)
+      .eq('id', reviewId)
       .select()
       .single();
 
@@ -2092,78 +2148,109 @@ export const coachService = {
     return data;
   },
 
-  // Delete a weekly check-in
-  async deleteWeeklyCheckin(checkinId: string): Promise<void> {
+  // Delete a weekly review
+  async deleteWeeklyReview(reviewId: string): Promise<void> {
     if (!isSupabaseConfigured() || !supabase) {
       throw new Error('Supabase not configured');
     }
 
     const { error } = await supabase
-      .from('weekly_checkins')
+      .from('weekly_reviews')
       .delete()
-      .eq('id', checkinId);
+      .eq('id', reviewId);
 
     if (error) throw error;
   },
 
-  // Calculate weekly stats from daily check-ins
-  async calculateWeeklyStats(
+  // Fetch daily check-ins for a week (to show coach the week's data)
+  async fetchWeeklyCheckinsData(
     relationshipId: string,
     userId: string,
     weekStartDate: string,
     weekEndDate: string
   ): Promise<{
-    avgEnergy: number | null;
-    avgMood: number | null;
-    avgStress: number | null;
-    taskCompletionRate: number | null;
-    checkinCount: number;
+    checkins: any[];
+    summary: {
+      totalDays: number;
+      checkinDays: number;
+      avgEnergy: number | null;
+      avgMood: number | null;
+      avgStress: number | null;
+      totalTasks: number;
+      completedTasks: number;
+      avgCompletionRate: number | null;
+    };
   }> {
     if (!isSupabaseConfigured() || !supabase) {
-      return { avgEnergy: null, avgMood: null, avgStress: null, taskCompletionRate: null, checkinCount: 0 };
+      return {
+        checkins: [],
+        summary: { totalDays: 7, checkinDays: 0, avgEnergy: null, avgMood: null, avgStress: null, totalTasks: 0, completedTasks: 0, avgCompletionRate: null }
+      };
     }
 
     try {
       // Try fetching by relationship_id first
       let { data, error } = await supabase
         .from('daily_checkins')
-        .select('energy_rating, mood_level, stress_level, completion_rate')
+        .select('*')
         .eq('relationship_id', relationshipId)
         .gte('checkin_date', weekStartDate)
-        .lte('checkin_date', weekEndDate);
+        .lte('checkin_date', weekEndDate)
+        .order('checkin_date', { ascending: true });
 
       // If no data by relationship, try by user_id
       if ((!data || data.length === 0) && userId) {
         const result = await supabase
           .from('daily_checkins')
-          .select('energy_rating, mood_level, stress_level, completion_rate')
+          .select('*')
           .eq('user_id', userId)
           .gte('checkin_date', weekStartDate)
-          .lte('checkin_date', weekEndDate);
+          .lte('checkin_date', weekEndDate)
+          .order('checkin_date', { ascending: true });
         data = result.data;
         error = result.error;
       }
 
-      if (error || !data || data.length === 0) {
-        return { avgEnergy: null, avgMood: null, avgStress: null, taskCompletionRate: null, checkinCount: 0 };
+      if (error) {
+        console.warn('Error fetching weekly checkins:', error);
+        return {
+          checkins: [],
+          summary: { totalDays: 7, checkinDays: 0, avgEnergy: null, avgMood: null, avgStress: null, totalTasks: 0, completedTasks: 0, avgCompletionRate: null }
+        };
       }
 
-      const checkinCount = data.length;
-      const energyValues = data.filter(d => d.energy_rating != null).map(d => d.energy_rating);
-      const moodValues = data.filter(d => d.mood_level != null).map(d => d.mood_level);
-      const stressValues = data.filter(d => d.stress_level != null).map(d => d.stress_level);
-      const completionValues = data.filter(d => d.completion_rate != null).map(d => d.completion_rate);
+      const checkins = data || [];
+      const checkinDays = checkins.length;
+
+      // Calculate averages
+      const energyValues = checkins.filter(c => c.energy_rating != null).map(c => c.energy_rating);
+      const moodValues = checkins.filter(c => c.mood_level != null).map(c => c.mood_level);
+      const stressValues = checkins.filter(c => c.stress_level != null).map(c => c.stress_level);
+      const completionValues = checkins.filter(c => c.completion_rate != null).map(c => c.completion_rate);
+
+      // Sum up tasks
+      const totalTasks = checkins.reduce((acc, c) => acc + (c.tasks_total || 0), 0);
+      const completedTasks = checkins.reduce((acc, c) => acc + (c.tasks_completed || 0), 0);
 
       return {
-        avgEnergy: energyValues.length > 0 ? energyValues.reduce((a, b) => a + b, 0) / energyValues.length : null,
-        avgMood: moodValues.length > 0 ? moodValues.reduce((a, b) => a + b, 0) / moodValues.length : null,
-        avgStress: stressValues.length > 0 ? stressValues.reduce((a, b) => a + b, 0) / stressValues.length : null,
-        taskCompletionRate: completionValues.length > 0 ? completionValues.reduce((a, b) => a + b, 0) / completionValues.length : null,
-        checkinCount,
+        checkins,
+        summary: {
+          totalDays: 7,
+          checkinDays,
+          avgEnergy: energyValues.length > 0 ? Math.round(energyValues.reduce((a, b) => a + b, 0) / energyValues.length * 10) / 10 : null,
+          avgMood: moodValues.length > 0 ? Math.round(moodValues.reduce((a, b) => a + b, 0) / moodValues.length * 10) / 10 : null,
+          avgStress: stressValues.length > 0 ? Math.round(stressValues.reduce((a, b) => a + b, 0) / stressValues.length * 10) / 10 : null,
+          totalTasks,
+          completedTasks,
+          avgCompletionRate: completionValues.length > 0 ? Math.round(completionValues.reduce((a, b) => a + b, 0) / completionValues.length) : null,
+        },
       };
     } catch (err) {
-      console.warn('Error calculating weekly stats:', err);
-      return { avgEnergy: null, avgMood: null, avgStress: null, taskCompletionRate: null, checkinCount: 0 };
+      console.warn('Error fetching weekly checkins:', err);
+      return {
+        checkins: [],
+        summary: { totalDays: 7, checkinDays: 0, avgEnergy: null, avgMood: null, avgStress: null, totalTasks: 0, completedTasks: 0, avgCompletionRate: null }
+      };
     }
   },
 };

@@ -270,7 +270,15 @@ const Templates = () => {
 
   const [createQuestionnaireOpen, setCreateQuestionnaireOpen] = useState(false);
   const [addQuestionDialogOpen, setAddQuestionDialogOpen] = useState(false);
+  const [editQuestionDialogOpen, setEditQuestionDialogOpen] = useState(false);
   const [selectedQuestionnaire, setSelectedQuestionnaire] = useState<Questionnaire | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<{
+    id: string;
+    question: string;
+    type: QuestionType;
+    options: string[];
+    required: boolean;
+  } | null>(null);
 
   const [newQuestionnaire, setNewQuestionnaire] = useState({
     title: "",
@@ -293,6 +301,7 @@ const Templates = () => {
   });
 
   const [optionInput, setOptionInput] = useState("");
+  const [editOptionInput, setEditOptionInput] = useState("");
 
   // Expanded category sections
   const [expandedSystemCategories, setExpandedSystemCategories] = useState<string[]>(["general"]);
@@ -603,6 +612,84 @@ const Templates = () => {
       toast.success("Question deleted");
     } catch (err) {
       toast.error("Failed to delete question");
+    }
+  };
+
+  const openEditQuestionDialog = (questionnaire: Questionnaire, question: typeof questionnaire.questions[0]) => {
+    setSelectedQuestionnaire(questionnaire);
+    setEditingQuestion({
+      id: question.id,
+      question: question.question,
+      type: question.type,
+      options: question.options || [],
+      required: question.required,
+    });
+    setEditQuestionDialogOpen(true);
+  };
+
+  const handleUpdateQuestion = async () => {
+    if (!selectedQuestionnaire || !editingQuestion) return;
+
+    if (!editingQuestion.question.trim()) {
+      toast.error("Question text is required");
+      return;
+    }
+
+    if ((editingQuestion.type === "single_choice" || editingQuestion.type === "multi_choice") && editingQuestion.options.length < 2) {
+      toast.error("Add at least 2 options for choice questions");
+      return;
+    }
+
+    try {
+      const updatedQuestions = selectedQuestionnaire.questions.map(q => {
+        if (q.id === editingQuestion.id) {
+          return {
+            id: editingQuestion.id,
+            question: editingQuestion.question,
+            type: editingQuestion.type,
+            options: editingQuestion.options,
+            required: editingQuestion.required,
+          };
+        }
+        return {
+          id: q.id,
+          question: q.question,
+          type: q.type,
+          options: q.options || [],
+          required: q.required,
+        };
+      });
+
+      await updateQuestionnaire.mutateAsync({
+        questionnaireId: selectedQuestionnaire.id,
+        updates: { questions: updatedQuestions },
+      });
+      toast.success("Question updated!");
+      setEditQuestionDialogOpen(false);
+      setSelectedQuestionnaire(null);
+      setEditingQuestion(null);
+      setEditOptionInput("");
+    } catch (err) {
+      toast.error("Failed to update question");
+    }
+  };
+
+  const addEditOption = () => {
+    if (editOptionInput.trim() && editingQuestion) {
+      setEditingQuestion(prev => prev ? ({
+        ...prev,
+        options: [...prev.options, editOptionInput.trim()],
+      }) : null);
+      setEditOptionInput("");
+    }
+  };
+
+  const removeEditOption = (index: number) => {
+    if (editingQuestion) {
+      setEditingQuestion(prev => prev ? ({
+        ...prev,
+        options: prev.options.filter((_, i) => i !== index),
+      }) : null);
     }
   };
 
@@ -1449,14 +1536,24 @@ const Templates = () => {
                                               )}
                                             </div>
                                           </div>
-                                          <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="h-7 w-7 p-0"
-                                            onClick={() => handleDeleteQuestion(questionnaire, question.id)}
-                                          >
-                                            <Trash2 className="h-3 w-3 text-destructive" />
-                                          </Button>
+                                          <div className="flex items-center gap-1">
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-7 w-7 p-0"
+                                              onClick={() => openEditQuestionDialog(questionnaire, question)}
+                                            >
+                                              <Pencil className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-7 w-7 p-0"
+                                              onClick={() => handleDeleteQuestion(questionnaire, question.id)}
+                                            >
+                                              <Trash2 className="h-3 w-3 text-destructive" />
+                                            </Button>
+                                          </div>
                                         </div>
                                       ))}
                                       {(!questionnaire.questions || questionnaire.questions.length === 0) && (
@@ -1625,6 +1722,101 @@ const Templates = () => {
             <Button onClick={handleAddQuestionToExisting} disabled={updateQuestionnaire.isPending}>
               {updateQuestionnaire.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Add Question
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Question Dialog */}
+      <Dialog open={editQuestionDialogOpen} onOpenChange={(open) => {
+        setEditQuestionDialogOpen(open);
+        if (!open) {
+          setSelectedQuestionnaire(null);
+          setEditingQuestion(null);
+          setEditOptionInput("");
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Question</DialogTitle>
+            <DialogDescription>
+              Update question in "{selectedQuestionnaire?.title}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Question Text *</Label>
+              <Input
+                value={editingQuestion?.question || ""}
+                onChange={(e) => setEditingQuestion(prev => prev ? ({ ...prev, question: e.target.value }) : null)}
+                placeholder="Enter your question..."
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select
+                  value={editingQuestion?.type || "text"}
+                  onValueChange={(value: QuestionType) => setEditingQuestion(prev => prev ? ({ ...prev, type: value, options: value === "single_choice" || value === "multi_choice" ? prev.options : [] }) : null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {QUESTION_TYPES.map(t => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Required</Label>
+                <div className="flex items-center space-x-2 pt-2">
+                  <Switch
+                    checked={editingQuestion?.required || false}
+                    onCheckedChange={(checked) => setEditingQuestion(prev => prev ? ({ ...prev, required: checked }) : null)}
+                  />
+                  <Label className="text-sm text-muted-foreground">
+                    {editingQuestion?.required ? "Yes" : "No"}
+                  </Label>
+                </div>
+              </div>
+            </div>
+
+            {(editingQuestion?.type === "single_choice" || editingQuestion?.type === "multi_choice") && (
+              <div className="space-y-2">
+                <Label>Options</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={editOptionInput}
+                    onChange={(e) => setEditOptionInput(e.target.value)}
+                    placeholder="Add option..."
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addEditOption())}
+                  />
+                  <Button type="button" variant="outline" onClick={addEditOption}>
+                    Add
+                  </Button>
+                </div>
+                {editingQuestion.options.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {editingQuestion.options.map((opt, idx) => (
+                      <Badge key={idx} variant="secondary" className="gap-1">
+                        {opt}
+                        <button onClick={() => removeEditOption(idx)}>
+                          <XCircle className="h-3 w-3 ml-1" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditQuestionDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateQuestion} disabled={updateQuestionnaire.isPending}>
+              {updateQuestionnaire.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
