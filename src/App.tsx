@@ -17,6 +17,7 @@ import Login from "./pages/Login";
 import Users from "./pages/Users";
 import Messages from "./pages/Messages";
 import Calendar from "./pages/Calendar";
+import ExpertRequests from "./pages/ExpertRequests";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -128,6 +129,11 @@ const AppContent = () => {
         <Route path="/users" element={
           <ProtectedRoute requiredRole="admin">
             <Users />
+          </ProtectedRoute>
+        } />
+        <Route path="/expert-requests" element={
+          <ProtectedRoute requiredRole="admin">
+            <ExpertRequests />
           </ProtectedRoute>
         } />
         <Route path="/settings" element={<Settings currentRole={currentRole} />} />

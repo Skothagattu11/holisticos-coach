@@ -16,6 +16,7 @@ import {
   LogOut,
   Shield,
   RefreshCw,
+  Lock,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
@@ -97,6 +98,12 @@ const navigationItems = [
     path: "/users",
     label: "User Management",
     icon: Shield,
+    roles: ["admin"] as UserRole[]
+  },
+  {
+    path: "/expert-requests",
+    label: "Expert Requests",
+    icon: Lock,
     roles: ["admin"] as UserRole[]
   },
   {
